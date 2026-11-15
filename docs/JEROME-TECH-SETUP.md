@@ -45,8 +45,8 @@ App memberships (Premium, Circle, VIP, My Sister's Keeper)  →  Stripe inside t
 ## Hosting the app
 
 - **Preview (now):** a private clickable preview is published on claude.ai for CB to review. It is not the real app and saves nothing.
-- **Development:** the real app deploys to Vercel, which gives a free private test address (for example, her-kingdom-wealth.vercel.app) for CB, Jerome, and beta testers.
-- **Launch:** connect **herkingdomwealth.com** (secured by CB on November 2, 2026) in Vercel. Members install it from the website to their phone's home screen; no app store is needed at launch. App Store and Google Play versions can follow later.
+- **Hosting (updated November 15, 2026): Hostinger.** GitHub Actions deploys every push to `main` over FTPS. Use a beta subdomain (for example, beta.herkingdomwealth.com) or a password-protected folder for testers. Setup steps are in `docs/DEPLOY-HOSTINGER.md`.
+- **Launch:** serve **herkingdomwealth.com** (secured by CB on November 2, 2026) from Hostinger. Members install it from the website to their phone's home screen; no app store is needed at launch. App Store and Google Play versions can follow later.
 
 ## Accounts to create or confirm
 
@@ -54,8 +54,8 @@ App memberships (Premium, Circle, VIP, My Sister's Keeper)  →  Stripe inside t
 - [ ] Matching social handles
 - [ ] GoHighLevel: Her Kingdom Wealth sub-account; sending domain authenticated (SPF, DKIM, DMARC)
 - [ ] GoHighLevel phone: 214 calling line, 214 texting line, A2P 10DLC registration, Voice Integrity; 855 port request if supported
-- [ ] Supabase (database + login)
-- [ ] Vercel (hosting) connected to the domain
+- [x] Supabase project "HKW" created November 15, 2026 (schema applied; login still to build)
+- [ ] Hostinger hosting connected to the domain (FTP secrets added to GitHub)
 - [ ] Stripe (app subscriptions, coupons) — under the correct legal entity
 - [ ] GitHub repository for the app code
 

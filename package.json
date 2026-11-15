@@ -2,12 +2,13 @@
   "name": "her-kingdom-wealth",
   "version": "0.9.8",
   "private": true,
-  "description": "Her Kingdom Wealth™: faith-based investing education app for women (beta preview).",
+  "description": "Her Kingdom Wealth\u2122: faith-based investing education app for women (beta preview).",
   "license": "UNLICENSED",
   "scripts": {
     "build:lessons": "python3 lessons/build.py",
     "test": "node tests/t3.js && node tests/lcheck.js",
-    "serve": "npx --yes http-server -p 8080 ."
+    "serve": "npx --yes http-server -p 8080 .",
+    "build:dist": "bash scripts/build-dist.sh"
   },
   "devDependencies": {
     "jsdom": "24.1.3",

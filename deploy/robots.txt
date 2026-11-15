@@ -1,0 +1,3 @@
+# Private beta: keep the app out of search results until public launch.
+User-agent: *
+Disallow: /
