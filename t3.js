@@ -1,0 +1,37 @@
+const {JSDOM}=require('jsdom');const fs=require('fs');
+const html=fs.readFileSync(''+require('path').join(__dirname,'..','index.html')+'','utf8');
+const dom=new JSDOM('<!doctype html><body>'+html+'</body>',{runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.matchMedia=()=>({matches:false});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{}}});
+const w=dom.window,d=w.document;const errs=[];w.addEventListener('error',e=>errs.push(e.message));
+const click=sel=>{const el=d.querySelector(sel);if(!el)throw new Error('missing '+sel);el.dispatchEvent(new w.MouseEvent('click',{bubbles:true}))};
+const type=(sel,v)=>{const el=d.querySelector(sel);el.value=v;el.dispatchEvent(new w.Event('input',{bubbles:true}))};
+click('[data-explore="2"]');console.log('explore ->',d.querySelector('h1').textContent);
+click('[data-go="signup"]');type('#fn','Grace');type('#em','g@x.com');type('#ph','2145550123');type('#pc','MYSISTERSKEEPER');
+const c=d.querySelector('#c-disc');c.checked=true;c.dispatchEvent(new w.Event('change',{bubbles:true}));
+d.querySelector('#signup').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+console.log('after signup ->',d.querySelector('h2').textContent);
+click('[data-val="Peace of mind"]');click('[data-val="Independence"]');type('#why-text','Never be without options.');click('[data-act="why-next"]');
+for(let i=0;i<5;i++){click('[data-qa="0"]');click('[data-act="qnext"]')}
+click('[data-go="archetype"]');click('[data-season="2"]');click('[data-drop="1"]');click('[data-jump="home"]');
+console.log('why card:',!!d.querySelector('[data-go="why"]'),'coach:',!!d.querySelector('[data-act="coach-off"]'));
+click('[data-tab="learn"]');click('[data-lesson="0-0"]');
+[1,1,1].forEach((o,qi)=>{const L=w.document;});
+const ans={0:[1,0,1]};ans[0].forEach((oi,qi)=>click(`[data-lq="seed-0|${qi}|${oi}"]`));click('[data-complete="seed-0"]');
+console.log('advanced to:',d.querySelector('h1').textContent);
+click('[data-tab="learn"]');click('[data-lesson="0-5"]');console.log('deep IPO parts:',d.querySelectorAll('section.card').length,'fit:',d.body.textContent.includes('For The Builder Mom'));
+click('[data-tab="learn"]');click('[data-lesson="1-1"]');console.log('deep IRA:',d.querySelector('h1').textContent);
+console.log('errors',errs);
+click('[data-tab="grow"]');click('[data-tab="tools"]');click('[data-tool="cd"]');click('[data-info="cd"]');console.log('sheet:',!!d.querySelector('.sheet'));click('[data-kb="cd"]');console.log('kb article:',d.querySelector('.arch h1').textContent);
+click('[data-act="kb-list"]');const q=d.querySelector('#kbq');q.value='life';q.dispatchEvent(new w.Event('input',{bubbles:true}));console.log('visible kb:',[...d.querySelectorAll('.kb-item')].filter(x=>!x.hidden).length);
+click('[data-kb="lifeins"]');console.log('partner:',!!d.querySelector('[data-n="Ethos"]'));click('[data-act="back"]');console.log('back ok', !!d.querySelector('#kbq'));
+console.log('errors2',errs);
+click('[data-tab="learn"]');click('[data-lib="kb"][data-golib]');click('[data-lib="legends"]');console.log('legend groups:',[...d.querySelectorAll('.stack h2')].map(x=>x.textContent).join(','),'links:',d.querySelectorAll('a.btn').length);
+click('[data-tab="grow"]');click('[data-lib="cash"]');console.log('footnote:',d.body.textContent.includes('* Dr. Cherie Banks'),'per-card disclosures:',d.querySelectorAll('.card .fine').length);
+click('[data-tab="home"]');click('[data-go="guide"]');console.log('guide items:',d.querySelectorAll('.card.tap').length);
+click('[data-tab="grow"]');click('[data-tab="tools"]');console.log('how to use:',d.body.textContent.includes('How to use it'),d.body.textContent.includes('What this means'));
+console.log('errors3',errs);
+click('[data-tab="home"]');console.log('fact on home:',!!d.querySelector('.fact'));click('[data-go="money"]');['saver','saver','avoider','saver'].forEach((t,i)=>click(`[data-mq="${i}|${t}"]`));console.log('type:',d.querySelector('.arch h1').textContent);
+click('[data-tab="home"]');click('[data-go="credit"]');console.log('cfpb link:',!!d.querySelector('a[href*="what-should-i-do-when-a-debt-collector"]'),'no builder:',!d.querySelector('#letter-out'));
+
+console.log('errors4',errs);
+click('[data-tab="grow"]');click('[data-go="giving"]');console.log('giving lessons:',d.querySelectorAll('section.card').length);const gi=d.querySelector('#gv-inc');gi.value='6000';gi.dispatchEvent(new w.Event('input',{bubbles:true}));console.log('yearly:',d.querySelectorAll('#gv-out .val')[2].textContent);
+click('[data-tab="learn"]');click('[data-lib="kb"][data-golib]');console.log('title:',d.querySelector('h1').textContent);console.log('errors5',errs);
