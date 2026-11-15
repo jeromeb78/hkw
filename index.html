@@ -1359,7 +1359,7 @@ function vLanding(){
    <label class="check"><input id="kl-ok" type="checkbox"><span>Yes, send me The Kingdom Insider. Unsubscribe from email anytime. By choosing text, you agree to receive recurring text messages from Her Kingdom Wealth™. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.</span></label>
    <button class="btn inline" type="button" data-act="admintoast" data-t="You will be added to The Kingdom Insider in the full app (preview)">Join The Kingdom Insider</button></form></section>
   <p class="small muted lock" style="justify-content:center">${LOCK}Private, encrypted, and never sold.</p>
-  <p class="small muted" style="text-align:center">Already a member? <button class="link" data-jump="home">Log in</button></p>
+  <p class="small muted" style="text-align:center">Already a member? <button class="link" ${window.hkwAuth&&hkwAuth.on?'data-auth="signin"':'data-jump="home"'}>Log in</button></p>
   <p class="fine copyright">© 2026 Birthing Billions™. All rights reserved.<br>Her Kingdom Wealth™ is a trademark used under license.</p>
  </div>`);
 }
@@ -1376,6 +1376,7 @@ function vSignup(){
    <div class="stack-s"><label for="ln">Last name</label><input id="ln" data-f="ln" type="text" autocomplete="family-name" value="${esc(f.ln)}"></div></div>
   ${e.fn?`<p class="err">${e.fn}</p>`:''}
   <div class="stack-s"><label for="em">Email <span class="req">*</span></label><input id="em" data-f="em" type="email" autocomplete="email" value="${esc(f.em)}">${e.em?`<p class="err">${e.em}</p>`:''}</div>
+  ${window.hkwAuth&&hkwAuth.on?hkwAuth.signupFields():''}
   <div class="stack-s"><label for="ph">Mobile number <span class="req">*</span></label><input id="ph" data-f="ph" type="tel" autocomplete="tel" placeholder="${intl()?'Include your country code, like +64':'(214) 555-0123'}" value="${esc(f.ph)}">${e.ph?`<p class="err">${e.ph}</p>`:''}</div>
   <div class="stack-s"><label for="country">Where do you live? <span class="req">*</span></label><select id="country" data-f="country">${COUNTRIES.map(c=>`<option ${f.country===c?'selected':''}>${c}</option>`).join('')}</select>
    ${intl()?`<p class="small okmsg">Welcome! Our lessons teach U.S. accounts and rules today. You can still open an account at no cost, and we will add you to our waitlist for ${esc(f.country==='Other country'?'your country':f.country)} so you are the first to know when lessons for your country are ready.</p>`:'<span class="fine">This helps us bring Her Kingdom Wealth™ to women in more countries.</span>'}</div>
@@ -1958,8 +1959,8 @@ const LENS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" 
 function shell(inner,{nav=false}={}){
  const inApp=nav||['help','search'].includes(S.view);
  return `<div class="app">
-  <div class="demo-strip" aria-label="Preview shortcuts"><span>Interactive preview · sample data</span>
-   <button data-go="landing">Landing</button><button data-go="signup">Sign-up</button><button data-jump="home">Dashboard</button><button data-go="security">Security</button><button data-go="admin">Admin</button><button data-act="demo-unlock">Unlock All Tiers</button></div>
+  ${!(window.hkwAuth&&hkwAuth.on&&!hkwAuth.previewTools)?`<div class="demo-strip" aria-label="Preview shortcuts"><span>Interactive preview · sample data</span>
+   <button data-go="landing">Landing</button><button data-go="signup">Sign-up</button><button data-jump="home">Dashboard</button><button data-go="security">Security</button><button data-go="admin">Admin</button><button data-act="demo-unlock">Unlock All Tiers</button></div>`:''}
   <div class="topbar">
    ${H.length?'<button class="chipbtn l" data-act="back" aria-label="Go back to the previous screen">← Back</button>':'<span></span>'}
    ${S.view==='landing'?'<span></span>':'<button class="brand foil" data-jump="home" aria-label="Her Kingdom Wealth home">HER KINGDOM WEALTH™</button>'}
@@ -2065,13 +2066,14 @@ function vMe(){
   <button class="card tap stack-s" data-go="bless"><span class="eyebrow">Share and bless</span><h3>Bless a Sister</h3><span class="small muted">Give a gift membership, sponsor a sister, or support the mission.</span></button>
   <button class="card tap stack-s" data-go="involve"><span class="eyebrow">Get involved</span><h3>Volunteer, Book, or Partner</h3><span class="small muted">Serve with your gifts, invite Rev. Dr. Banks, or partner with us.</span></button>
   <button class="card tap stack-s" data-go="security"><span class="eyebrow lock">${LOCK}Your information</span><h3>Privacy &amp; Security</h3><span class="small muted">Two-step verification: On</span></button>
+  ${window.hkwAuth&&hkwAuth.on?hkwAuth.accountCard():''}
   <div class="card"><p class="eyebrow" style="margin-bottom:6px">Safety settings</p>
    ${sw('safetyExit','Safety Exit','Off by default. When on, a small Exit button appears at the top of every screen. One tap replaces the app with an everyday page if someone walks in.')}
    ${sw('discreet','Discreet notifications','Emails and texts never mention money or investing, and come from a neutral sender name.')}
    ${sw('paused','Pause all messages','Stops every email and text immediately.')}</div>
-  <button class="card tap stack-s" data-go="admin"><span class="eyebrow">For Rev. Dr. Banks only</span><h3>Admin Dashboard</h3></button>
+  ${!(window.hkwAuth&&hkwAuth.on&&!hkwAuth.previewTools)?`<button class="card tap stack-s" data-go="admin"><span class="eyebrow">For Rev. Dr. Banks only</span><h3>Admin Dashboard</h3></button>`:''}
   <p class="disclaim">Her Kingdom Wealth™ and all content by Rev. Dr. Cherie Banks and Birthing Billions™ are provided for educational and informational purposes only and do not constitute financial, investment, tax, or legal advice.</p>
-  <button class="link" data-go="landing">Sign out</button>
+  <button class="link" ${window.hkwAuth&&hkwAuth.on?'data-auth="signout"':'data-go="landing"'}>Sign out</button>
   <p class="fine copyright">© 2026 Birthing Billions™. All rights reserved.<br>Her Kingdom Wealth™ is a trademark used under license.</p></div>`;
 }
 /* ---------- Search ---------- */
@@ -2231,7 +2233,7 @@ document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset
 document.addEventListener('change',e=>{const s=e.target.dataset&&e.target.dataset.ivsel;if(!s)return;const [sec,k]=s.split('|');INV()[sec][k]=e.target.value});
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-klpref]');if(!b)return;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
-window.__hkw={get S(){return S},render:()=>render()};
+window.__hkw={get S(){return S},render:()=>render(),go,back,toast,cheer,calc,esc,shell,crown,H};
 /* ---------- Supabase sync (production only) ----------
    Sends the sign-up form and Contact Us messages to the HKW Supabase project.
    Runs only on hosts listed in config.js, so the preview and tests send nothing.
@@ -2244,7 +2246,9 @@ const hkwSync=(()=>{const c=window.HKW_CONFIG||{};
    .then(r=>r.ok).catch(()=>false)}}})();
 function render(){
  cid=0;let h;
+ if(window.hkwAuth&&hkwAuth.guard)hkwAuth.guard();
  switch(S.view){
+  case 'auth':h=window.hkwAuth&&hkwAuth.view?hkwAuth.view():vLanding();break;
   case 'landing':h=vLanding();break; case 'signup':h=vSignup();break; case 'quiz':h=vQuiz();break;
   case 'tierresult':h=vTierResult();break; case 'archetype':h=vArchetype();break; case 'lesson':h=vLesson();break;
   case 'case':h=vCase();break; case 'plans':h=vPlans();break; case 'care':h=vCare();break; case 'admin':h=vAdmin();break;
@@ -2254,6 +2258,7 @@ function render(){
  const vk=S.view+'|'+S.tab+'|'+S.lesson+'|'+S.lib+'|'+S.careTab;const r=$('#root');r.classList.toggle('enter',vk!==render.k);render.k=vk;
  r.innerHTML=h+celebrate()+cheerView()+safetyModal()+infoSheet();
  const ch=$('#chat');if(ch)ch.scrollTop=ch.scrollHeight;
+ if(window.hkwAuth&&hkwAuth.afterRender)hkwAuth.afterRender();
 }
 
 /* ---------- Events ---------- */
@@ -2322,13 +2327,15 @@ document.addEventListener('submit',e=>{
   if(intl()){const n=v.ph.replace(/\D/g,'').length;if(n<7||n>15)er.ph='Enter your mobile number with your country code.'}else if(v.ph.replace(/\D/g,'').length<10)er.ph='Enter your 10-digit mobile number.';
   if(v.pc.trim()&&!codeOk(v.pc))er.pc="That code isn't recognized. Check the spelling, or leave it blank.";
   if(!v.cdisc)er.disc='Please check the box to confirm you understand the content is educational.';
+  if(window.hkwAuth&&hkwAuth.on)hkwAuth.checkSignup(v,er);
   S.name=(v.fn.trim()+' '+v.ln.trim()).trim();S.email=v.em.trim();S.phone=v.ph.trim();
   if(Object.keys(er).length){S.errs=er;render();const el=$('.err');if(el)el.scrollIntoView({block:'center'});return}
   S.errs={};if(v.pc.trim()){S.plan='premium';S.msk=true}
   hkwSync.post('beta_signups',{first_name:v.fn.trim(),last_name:v.ln.trim()||null,email:v.em.trim(),phone:v.ph.trim()||null,country:v.country||null,invite_code:v.pc.trim()||null,plan:S.plan==='premium'?'premium':'complimentary',email_consent:!!v.cem,sms_consent:!!v.csms,disclaimer_ack:!!v.cdisc,source:hkwSync.source});
+  if(window.hkwAuth&&hkwAuth.on){hkwAuth.signUp();return}
   cheer('welcome');go('why');return}
  if(f.id==='promo'){const v=$('#promo-in').value,m=$('#promo-msg');
-  if(codeOk(v)){S.plan='premium';S.msk=true;render();toast("My Sister's Keeper: 12 months of complimentary Premium unlocked.")}
+  if(codeOk(v)){S.plan='premium';S.msk=true;if(window.hkwAuth&&hkwAuth.on)hkwAuth.redeem(v);render();toast("My Sister's Keeper: 12 months of complimentary Premium unlocked.")}
   else{m.textContent="That code isn't recognized or the invitation has closed. Check the spelling and try again.";m.className='err'}return}
  if(f.id==='jform'){const v=parseFloat($('#jamt').value);if(!(v>=0)){toast("Enter this month's total as a number, like 2150.");return}
   if(S.jSample){S.jSample=false}
@@ -2647,3 +2654,4 @@ document.addEventListener('change',e=>{const el=e.target;if(el.dataset.lf&&el.ta
 render();
 })();
 </script>
+<script src="auth.js"></script>

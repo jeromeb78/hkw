@@ -2,7 +2,7 @@
 
 **Building Wealth God's Way.** A faith-based investing education app for Christian women, especially women of color, and open to every woman. Offered by Birthing Billions™, with Cherie Banks Ministries™ as a partner. Founder: Rev. Dr. Cherie Banks. CTO: Jerome Banks.
 
-> **Status: private beta preview (v98, November 2026).** The app runs entirely in the browser. On the live Hostinger site, the sign-up and Contact Us forms are saved to Supabase. It does not yet have sign-in, save progress, or take payments. Real accounts, GoHighLevel sync, billing, and analytics are part of the production build described in `docs/JEROME-TECH-SETUP.md`.
+> **Status: private beta preview (v98, November 2026).** The app runs entirely in the browser. On the live site (herkingdomwealth.com), members sign in with Supabase Auth and two-step verification, and their progress is saved. The preview runs without accounts. Payments are not built yet. Real accounts, GoHighLevel sync, billing, and analytics are part of the production build described in `docs/JEROME-TECH-SETUP.md`.
 
 > **Keep this repository private.** It contains unreleased content and proprietary curriculum. See `LICENSE`.
 
@@ -22,6 +22,7 @@
 | --- | --- |
 | `index.html` | The complete app: one self-contained HTML file (markup, styles, and script) |
 | `config.js` | Public runtime config: Supabase URL, publishable key, and hosts allowed to send form data |
+| `auth.js`, `vendor/` | Sign-in (Supabase Auth with required two-step verification) and automatic saving of member progress, active only on the live site |
 | `lessons/` | Python sources for the 37 deep lessons (`seed.py`, `sower.py`, `steward.py`, `kingdom.py`) and `build.py`, which writes them into `index.html` |
 | `emails/` | Email templates: welcome, newsletter (The Kingdom Insider), tier-up, and IPO-week alert |
 | `docs/JEROME-TECH-SETUP.md` | Technical setup: GoHighLevel, hosting, beta sign-up, analytics, automatic-renewal workflows, compliance |
@@ -68,6 +69,7 @@ npm test
 
 - `tests/t3.js` loads the app in jsdom and clicks through core flows.
 - `tests/lcheck.js` opens all 40 lessons in Chromium and confirms each one renders its sections, 30 quiz options, and tip, with no script errors.
+- `tests/auth-flow.js` runs `server.js` and the real Supabase client against a mocked Supabase API. It covers sign-up, the beta gate, email code, two-step setup and sign-in, saving and reloading progress, password reset, and sign-out.
 
 ## Deploy
 

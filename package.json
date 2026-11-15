@@ -8,7 +8,7 @@
     "build": "node scripts/check-release.js",
     "start": "node server.js",
     "build:lessons": "python3 lessons/build.py",
-    "test": "node tests/t3.js && node tests/lcheck.js",
+    "test": "node tests/t3.js && node tests/lcheck.js && node tests/auth-flow.js",
     "serve": "node server.js"
   },
   "devDependencies": {

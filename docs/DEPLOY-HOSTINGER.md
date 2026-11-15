@@ -18,7 +18,7 @@ hPanel → Websites → Add website → **Node.js app** → connect GitHub repo 
 
 ## What the server does
 
-- Serves **only** these paths: `/`, `/index.html`, `/config.js`, `/robots.txt`, `/assets/HKW-Share-Card.png`, and `/api/health`. Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
+- Serves **only** these paths: `/`, `/index.html`, `/config.js`, `/auth.js`, `/vendor/supabase-2.118.0.js`, `/robots.txt`, `/assets/HKW-Share-Card.png`, and `/api/health`. Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
 - Redirects `http` → `https` (using Hostinger's `X-Forwarded-Proto`), and `www.` → the apex domain when `CANONICAL_HOST` is set.
 - Sends security headers: Content-Security-Policy (only the Supabase project is allowed for `connect-src`), HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, and Permissions-Policy.
 - Gzips the 660 KB app to about 210 KB and uses ETags, with `no-cache` on the HTML and config so every release shows up right away.
@@ -35,6 +35,7 @@ hPanel → Websites → Add website → **Node.js app** → connect GitHub repo 
 | `HKW_SUPABASE_URL` + `HKW_SUPABASE_PUBLISHABLE_KEY` | Serve `config.js` from these instead of the committed file, e.g. for a staging Supabase project. Use the **publishable** key only; the server refuses a secret or service-role key. |
 | `HKW_ALLOWED_HOSTS` | Comma-separated hosts where the forms send data (used only with the two variables above) |
 | `HKW_SOURCE` | `source` value stored on sign-ups, e.g. `beta` |
+| `HKW_PREVIEW_TOOLS` | `true` shows the preview strip (Unlock All Tiers, Admin) on the live site. Leave unset for real members. |
 
 These are read when the app starts, so restart the app in hPanel after changing one. No rebuild is needed.
 
@@ -63,8 +64,52 @@ npm ci && npm run build && npm start   # then open http://localhost:3000
 - The app sends the sign-up form and Contact Us messages. It **never** sends the safety answer, Safety Exit, Wealth Journey, or calculator inputs.
 - Forms send data only on hosts in `config.js` → `hosts`. Add a staging or subdomain host there.
 
+## Sign-in (Supabase Auth)
+
+On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accounts:
+
+1. **Sign up:** the existing form, plus a password (10 or more characters) and "Keep me signed in on this device" (off by default, for shared phones).
+2. **Confirm email:** she enters the 6-digit code from the email, or taps the link.
+3. **Two-step verification (required):** she scans a QR code with an authenticator app and enters a code. Member data can't be read or written without it, and the database enforces this too.
+4. **Onboarding and progress save automatically:** profile, tier, season, risk band, lesson completions, Why card, quiz answers, action steps, Wealth Journey, Money Story, calculator inputs, and notification settings. They reload at every sign-in.
+5. **Sign in:** email, password, then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
+
+**Never saved:** the safety question answer, the Safety Exit setting, the credit letter text, or passwords (Supabase stores only a hash).
+
+**Server-side rules** (`supabase/migrations/`):
+- **Beta gate:** while `app_settings.beta_gate` is on, only emails in `beta_allowlist` can create accounts.
+- **Invitation codes** (`promo_codes`): validated in the database at sign-up or in the app. `MYSISTERSKEEPER` grants 12 months of Premium.
+- **Plan and expiry** can be changed only by the server, never by the member.
+
+### One-time Supabase dashboard setup (project HKW)
+
+These settings aren't available to the tools used to build this, so set them in the dashboard:
+
+1. **Authentication → URL Configuration:** Site URL `https://herkingdomwealth.com`. Add the Redirect URLs `https://herkingdomwealth.com/**` and `https://www.herkingdomwealth.com/**`.
+2. **Authentication → Emails → SMTP Settings:** turn on custom SMTP. **Required for testers:** Supabase's built-in email only sends to members of your Supabase team, and only a few per hour. Use your sending provider (for example, the GoHighLevel/Mailgun domain, Resend, or Hostinger email), with sender `Her Kingdom Wealth <support@herkingdomwealth.com>`.
+3. **Authentication → Emails → Templates:** add the 6-digit code to two templates.
+   - **Confirm signup:** `<p>Your Her Kingdom Wealth confirmation code is <b>{{ .Token }}</b>.</p><p>Or <a href="{{ .ConfirmationURL }}">confirm your email</a>.</p>`
+   - **Reset password:** `<p>Your password reset code is <b>{{ .Token }}</b>.</p><p>Or <a href="{{ .ConfirmationURL }}">reset your password</a>.</p>`
+   - If members use Discreet notifications, keep the subject lines neutral, e.g. "Your code".
+4. **Authentication → Sign In / Providers → Email:** keep "Confirm email" on, and set the minimum password length to 10.
+5. **Authentication → Multi-Factor:** TOTP (authenticator app) should be enabled. It is on by default.
+
+### Managing beta testers
+
+In the Supabase SQL editor, or Table Editor → `beta_allowlist` (emails are lowercased automatically):
+
+```sql
+insert into public.beta_allowlist (email, note) values
+  ('tester1@example.com', 'beta-tester'),
+  ('tester2@example.com', 'beta-tester');
+```
+
+- At public launch, open sign-up to everyone: `update public.app_settings set beta_gate = false;`
+- Close or limit an invitation code: `update public.promo_codes set active = false where code = 'MYSISTERSKEEPER';`, or set `expires_at` / `max_redemptions`.
+- See who redeemed a code: `select * from public.redemptions;`
+- If a member loses her phone: Authentication → Users → her account → remove her MFA factor. She sets up two-step verification again at her next sign-in.
+
 ## Still to build (see JEROME-TECH-SETUP.md)
 
-- Sign-in (Supabase Auth with two-step verification) and saving member progress
 - Sending new sign-ups and Contact Us rows to GoHighLevel (Supabase Database Webhook or Edge Function, setting `ghl_synced_at`)
 - Stripe billing and webhooks: Supabase Edge Functions, or new routes in `server.js` now that the app runs on Node
