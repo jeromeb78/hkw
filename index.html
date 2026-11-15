@@ -404,6 +404,7 @@ input[type="search"]{width:100%;min-height:50px;padding:12px 14px;border:1px sol
 <div id="root"></div>
 <div id="toast" class="toast" hidden></div>
 
+<script src="config.js"></script>
 <script>
 (function(){
 'use strict';
@@ -2231,6 +2232,16 @@ document.addEventListener('change',e=>{const s=e.target.dataset&&e.target.datase
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-klpref]');if(!b)return;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
 window.__hkw={get S(){return S},render:()=>render()};
+/* ---------- Supabase sync (production only) ----------
+   Sends the sign-up form and Contact Us messages to the HKW Supabase project.
+   Runs only on hosts listed in config.js, so the preview and tests send nothing.
+   Never sends the safety answer, Safety Exit, Wealth Journey, or calculator inputs. */
+const hkwSync=(()=>{const c=window.HKW_CONFIG||{};
+ const on=!!(c.supabaseUrl&&c.supabaseKey&&Array.isArray(c.hosts)&&c.hosts.includes(location.hostname));
+ return {on,source:c.source||'app',post(table,row){if(!on)return Promise.resolve(false);
+  return fetch(c.supabaseUrl.replace(/\/$/,'')+'/rest/v1/'+table,{method:'POST',keepalive:true,
+   headers:{apikey:c.supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(row)})
+   .then(r=>r.ok).catch(()=>false)}}})();
 function render(){
  cid=0;let h;
  switch(S.view){
@@ -2314,6 +2325,7 @@ document.addEventListener('submit',e=>{
   S.name=(v.fn.trim()+' '+v.ln.trim()).trim();S.email=v.em.trim();S.phone=v.ph.trim();
   if(Object.keys(er).length){S.errs=er;render();const el=$('.err');if(el)el.scrollIntoView({block:'center'});return}
   S.errs={};if(v.pc.trim()){S.plan='premium';S.msk=true}
+  hkwSync.post('beta_signups',{first_name:v.fn.trim(),last_name:v.ln.trim()||null,email:v.em.trim(),phone:v.ph.trim()||null,country:v.country||null,invite_code:v.pc.trim()||null,plan:S.plan==='premium'?'premium':'complimentary',email_consent:!!v.cem,sms_consent:!!v.csms,disclaimer_ack:!!v.cdisc,source:hkwSync.source});
   cheer('welcome');go('why');return}
  if(f.id==='promo'){const v=$('#promo-in').value,m=$('#promo-msg');
   if(codeOk(v)){S.plan='premium';S.msk=true;render();toast("My Sister's Keeper: 12 months of complimentary Premium unlocked.")}
@@ -2325,7 +2337,7 @@ document.addEventListener('submit',e=>{
  if(f.id==='contact'){const er=$('#cerr');if($('#cw').value){S.sent=true;render();return}
   const n=$('#cn').value.trim(),em=$('#ce').value.trim(),r=$('#cr').value,m=$('#cm').value.trim();
   const msg=!n?'Enter your name.':!/^\S+@\S+\.\S+$/.test(em)?'Enter a valid email address so we can reply.':!r?'Choose what your message is about.':!m?'Write your message before sending.':'';
-  if(msg){er.textContent=msg;er.hidden=false;return}S.sent=true;render();return}
+  if(msg){er.textContent=msg;er.hidden=false;return}hkwSync.post('contact_messages',{name:n,email:em,topic:r,message:m});S.sent=true;render();return}
 });
 document.addEventListener('input',e=>{
  const el=e.target;

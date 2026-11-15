@@ -2,7 +2,7 @@
 
 **Building Wealth God's Way.** A faith-based investing education app for Christian women, especially women of color, and open to every woman. Offered by Birthing Billions™, with Cherie Banks Ministries™ as a partner. Founder: Rev. Dr. Cherie Banks. CTO: Jerome Banks.
 
-> **Status: private beta preview (v98, November 2026).** The app runs entirely in the browser. It does not yet save accounts, take payments, or send data anywhere. Real accounts, GoHighLevel sync, billing, and analytics are part of the production build described in `docs/JEROME-TECH-SETUP.md`.
+> **Status: private beta preview (v98, November 2026).** The app runs entirely in the browser. On the live Hostinger site, the sign-up and Contact Us forms are saved to Supabase. It does not yet have sign-in, save progress, or take payments. Real accounts, GoHighLevel sync, billing, and analytics are part of the production build described in `docs/JEROME-TECH-SETUP.md`.
 
 > **Keep this repository private.** It contains unreleased content and proprietary curriculum. See `LICENSE`.
 
@@ -21,6 +21,7 @@
 | Path | What it is |
 | --- | --- |
 | `index.html` | The complete app: one self-contained HTML file (markup, styles, and script) |
+| `config.js` | Public runtime config: Supabase URL, publishable key, and hosts allowed to send form data |
 | `lessons/` | Python sources for the 37 deep lessons (`seed.py`, `sower.py`, `steward.py`, `kingdom.py`) and `build.py`, which writes them into `index.html` |
 | `emails/` | Email templates: welcome, newsletter (The Kingdom Insider), tier-up, and IPO-week alert |
 | `docs/JEROME-TECH-SETUP.md` | Technical setup: GoHighLevel, hosting, beta sign-up, analytics, automatic-renewal workflows, compliance |
@@ -29,6 +30,11 @@
 | `docs/CB-PARTNER-LINKS.md` | Partner and affiliate links, with disclosure rules |
 | `assets/` | App QR code and share card |
 | `tests/` | Automated checks for the app |
+| `supabase/migrations/` | Database schema for the HKW Supabase project |
+| `server.js` | Production server for Hostinger Node.js hosting: serves only the public files, with security headers and `/api/health` |
+| `scripts/check-release.js`, `deploy/robots.txt` | `npm run build` release check, and the beta `robots.txt` |
+| `.github/workflows/ci.yml` | Runs Hostinger's build plus the tests on every push and PR |
+| `docs/DEPLOY-HOSTINGER.md` | Hostinger and Supabase setup |
 
 ## Run it locally
 
@@ -37,7 +43,7 @@ No build step is needed to view the app:
 ```bash
 # Option 1: open index.html directly in a browser
 # Option 2: serve it locally
-npm run serve        # then visit http://localhost:8080
+npm start            # then visit http://localhost:3000
 ```
 
 In the preview, the **Unlock All Tiers** button opens every tier for review.
@@ -65,7 +71,9 @@ npm test
 
 ## Deploy
 
-Production will live at **HerKingdomWealth.com**, with the beta at HerKingdomWealth.com/beta. Follow `docs/JEROME-TECH-SETUP.md` in order:
+The app runs on **Hostinger Node.js hosting**. hPanel pulls `main` from GitHub, runs `npm run build`, and starts `server.js` (app type Other). The hPanel settings table and environment variables are in `docs/DEPLOY-HOSTINGER.md`. Data goes to the **HKW** Supabase project.
+
+Production will live at **HerKingdomWealth.com**. Follow `docs/JEROME-TECH-SETUP.md` in order:
 
 1. Beta sign-up form and QR code in GoHighLevel (contacts tagged `beta-tester`)
 2. Hosting on HerKingdomWealth.com with sign-in and two-step verification

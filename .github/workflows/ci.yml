@@ -1,0 +1,33 @@
+name: CI
+
+# Hostinger deploys main itself (hPanel Node.js app connected to GitHub).
+# This workflow runs the same build Hostinger runs, plus the tests, so breaks show up on PRs first.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci --no-audit --no-fund
+      - name: Lessons are built into index.html
+        run: python3 lessons/build.py && git diff --exit-code -- index.html
+      - name: Hostinger build
+        run: npm run build
+      - name: Server starts and serves only public files
+        run: |
+          PORT=3123 node server.js & sleep 1
+          curl -fsS http://127.0.0.1:3123/api/health
+          curl -fsS -o /dev/null http://127.0.0.1:3123/
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3123/docs/BLUEPRINT.md)" = 404
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
