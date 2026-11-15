@@ -31,8 +31,9 @@
 | `assets/` | App QR code and share card |
 | `tests/` | Automated checks for the app |
 | `supabase/migrations/` | Database schema for the HKW Supabase project |
-| `deploy/`, `scripts/build-dist.sh` | Hostinger files (`.htaccess`, `robots.txt`) and the script that builds `dist/` |
-| `.github/workflows/deploy-hostinger.yml` | Tests, builds, and uploads to Hostinger on every push to `main` |
+| `server.js` | Production server for Hostinger Node.js hosting: serves only the public files, with security headers and `/api/health` |
+| `scripts/check-release.js`, `deploy/robots.txt` | `npm run build` release check, and the beta `robots.txt` |
+| `.github/workflows/ci.yml` | Runs Hostinger's build plus the tests on every push and PR |
 | `docs/DEPLOY-HOSTINGER.md` | Hostinger and Supabase setup |
 
 ## Run it locally
@@ -42,7 +43,7 @@ No build step is needed to view the app:
 ```bash
 # Option 1: open index.html directly in a browser
 # Option 2: serve it locally
-npm run serve        # then visit http://localhost:8080
+npm start            # then visit http://localhost:3000
 ```
 
 In the preview, the **Unlock All Tiers** button opens every tier for review.
@@ -70,7 +71,7 @@ npm test
 
 ## Deploy
 
-The app is hosted on **Hostinger** and deployed by GitHub Actions on every push to `main`: tests run, `npm run build:dist` builds `dist/` (public files only), and it uploads over FTPS. One-time setup (FTP secrets, target folder, SSL) is in `docs/DEPLOY-HOSTINGER.md`. Data goes to the **HKW** Supabase project.
+The app runs on **Hostinger Node.js hosting**. hPanel pulls `main` from GitHub, runs `npm run build`, and starts `server.js` (app type Other). The hPanel settings table and environment variables are in `docs/DEPLOY-HOSTINGER.md`. Data goes to the **HKW** Supabase project.
 
 Production will live at **HerKingdomWealth.com**. Follow `docs/JEROME-TECH-SETUP.md` in order:
 
