@@ -81,18 +81,31 @@ On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accou
 - **Invitation codes** (`promo_codes`): validated in the database at sign-up or in the app. `MYSISTERSKEEPER` grants 12 months of Premium.
 - **Plan and expiry** can be changed only by the server, never by the member.
 
-### One-time Supabase dashboard setup (project HKW)
+### One-time Supabase setup (project HKW)
 
-These settings aren't available to the tools used to build this, so set them in the dashboard:
+The branded email templates are in `emails/auth/` (subjects in `subjects.json`). `scripts/apply-auth-config.js` applies them along with the sign-in settings the app needs:
+- Site URL `https://herkingdomwealth.com`, plus redirect URLs for the apex and `www`
+- 6-digit email codes that last 1 hour, a 10-character minimum password, and "Confirm email" on
+- Authenticator-app two-step verification
+- Security alerts for password changes and for two-step methods added or removed
+- The templates: Confirm signup, Reset password, Invite user, and the three security alerts
 
-1. **Authentication → URL Configuration:** Site URL `https://herkingdomwealth.com`. Add the Redirect URLs `https://herkingdomwealth.com/**` and `https://www.herkingdomwealth.com/**`.
-2. **Authentication → Emails → SMTP Settings:** turn on custom SMTP. **Required for testers:** Supabase's built-in email only sends to members of your Supabase team, and only a few per hour. Use your sending provider (for example, the GoHighLevel/Mailgun domain, Resend, or Hostinger email), with sender `Her Kingdom Wealth <support@herkingdomwealth.com>`.
-3. **Authentication → Emails → Templates:** add the 6-digit code to two templates.
-   - **Confirm signup:** `<p>Your Her Kingdom Wealth confirmation code is <b>{{ .Token }}</b>.</p><p>Or <a href="{{ .ConfirmationURL }}">confirm your email</a>.</p>`
-   - **Reset password:** `<p>Your password reset code is <b>{{ .Token }}</b>.</p><p>Or <a href="{{ .ConfirmationURL }}">reset your password</a>.</p>`
-   - If members use Discreet notifications, keep the subject lines neutral, e.g. "Your code".
-4. **Authentication → Sign In / Providers → Email:** keep "Confirm email" on, and set the minimum password length to 10.
-5. **Authentication → Multi-Factor:** TOTP (authenticator app) should be enabled. It is on by default.
+**Option A: run the script** on your own computer, from the repo folder:
+
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_your_token node scripts/apply-auth-config.js
+```
+
+Create the token at supabase.com → Account → Access Tokens. It can manage **every** project in your account, so delete it when you're done. `--dry-run` shows what will change without a token.
+
+**Option B: paste by hand.** In the dashboard:
+1. **Authentication → Emails → Templates:** paste each file from `emails/auth/` into its template (Confirm signup = `confirmation.html`, Reset password = `recovery.html`, Invite user = `invite.html`, and the Security notifications), with the subjects from `subjects.json`.
+2. **Authentication → URL Configuration:** set the Site URL and redirect URLs above.
+3. **Sign In / Providers → Email:** set the minimum password length to 10.
+
+**Either way, also set up custom SMTP** (Authentication → Emails → SMTP Settings). The script can't do this because it needs your email provider's password. **It is required for testers:** Supabase's built-in email only sends to members of your Supabase team, and only a few per hour. Use a sender like `Her Kingdom Wealth <support@herkingdomwealth.com>`, or a neutral sender name for Discreet notifications, and turn off link/click tracking at your provider, because tracking breaks the email links.
+
+Subject lines are deliberately neutral ("Your confirmation code") so nothing about money shows on a lock screen.
 
 ### Managing beta testers
 

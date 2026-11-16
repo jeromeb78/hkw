@@ -1,0 +1,8 @@
+{
+  "confirmation": "Your confirmation code",
+  "recovery": "Your password reset code",
+  "invite": "You are invited",
+  "password_changed_notification": "Your password was changed",
+  "mfa_factor_enrolled_notification": "A sign-in verification method was added",
+  "mfa_factor_unenrolled_notification": "A sign-in verification method was removed"
+}

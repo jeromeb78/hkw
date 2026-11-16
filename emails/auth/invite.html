@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>You Are Invited</title>
+<style>
+  body { margin:0; padding:0; background:#F6E6E2; }
+  a { color:#8A5E24; }
+  @media (max-width:620px) { .wrap { width:100% !important; } .pad { padding-left:24px !important; padding-right:24px !important; } }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F6E6E2;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">You have a personal invitation to join.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F6E6E2;">
+<tr><td align="center" style="padding:28px 12px;">
+  <table role="presentation" class="wrap" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;background:#FFFBF6;border:1px solid #D9B877;">
+    <tr><td style="height:6px;background:#B48A4A;background-image:linear-gradient(90deg,#B48A4A,#F3DFA2,#B48A4A);font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td align="center" class="pad" style="padding:34px 48px 4px;">
+      <div style="font-family:Cinzel,'Trajan Pro',Georgia,serif;font-size:22px;letter-spacing:5px;color:#5A3C26;">HER KINGDOM WEALTH&trade;</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px auto 0;"><tr>
+        <td style="width:60px;height:1px;background:#D9B877;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="width:20px;height:3px;background:#B48A4A;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="width:60px;height:1px;background:#D9B877;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    </td></tr>
+    <tr><td align="center" class="pad" style="padding:26px 48px 6px;">
+      <div style="font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:4px;color:#B48A4A;text-transform:uppercase;">A personal invitation</div>
+      <div style="font-family:Cinzel,'Trajan Pro',Georgia,serif;font-size:26px;line-height:1.3;letter-spacing:3px;color:#5A3C26;margin-top:10px;">You Are Invited</div>
+    </td></tr>
+    <tr><td class="pad" style="padding:18px 48px 6px;font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.7;color:#2A2220;">
+      <p style="margin:0 0 14px;">{{ if .Data.first_name }}Dear {{ .Data.first_name }},{{ else }}Hello,{{ end }}</p>
+      <p style="margin:0 0 14px;">Rev. Dr. Cherie Banks has invited you to join Her Kingdom Wealth&trade;. Tap below to accept your invitation and create your password. You will then set up two-step verification to keep your account safe.</p>
+    </td></tr>
+    <tr><td align="center" class="pad" style="padding:20px 48px 8px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#5A3C26" style="border-radius:999px;">
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 30px;font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#FFFBF6;text-decoration:none;border-radius:999px;">Accept your invitation</a>
+      </td></tr></table>
+    </td></tr>
+    <tr><td class="pad" style="padding:22px 48px 30px;font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.65;color:#7A6660;">
+      <p style="margin:0 0 10px;">If you were not expecting this invitation, you can ignore this email.</p>
+      <p style="margin:0 0 10px;">Her Kingdom Wealth&trade; will never ask for your password, your authenticator codes, your Social Security number, or bank details by email, text, or phone.</p>
+      <p style="margin:0;">Questions? Write to <a href="mailto:support@herkingdomwealth.com" style="color:#8A5E24;">support@herkingdomwealth.com</a>.</p>
+    </td></tr>
+    <tr><td style="height:4px;background:#D9B877;font-size:0;line-height:0;">&nbsp;</td></tr>
+  </table>
+  <div style="font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:11px;line-height:1.6;color:#8A7670;padding:16px 12px 0;">&copy; 2026 Birthing Billions&trade;. All rights reserved.</div>
+</td></tr>
+</table>
+</body>
+</html>
