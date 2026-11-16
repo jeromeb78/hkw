@@ -1685,18 +1685,23 @@ function vGuide(){
  </div>`,{nav:true});
 }
 function vWelcome(){
- const m=CHEERS.welcome[1],nm=S.name?esc(S.name.split(' ')[0]):'';
+ const m=CHEERS.welcome[1],nm=S.name?esc(S.name.split(' ')[0]):'',back=!!S.welcomeBack;
  const STEPS=[['Your why','Choose what your money is for, so every lesson connects to it.'],['Placement quiz','A few quick questions place you as a Seed, Sower, Steward, or Kingdom Builder.'],['Your investor profile','Your season of life and comfort with risk, explained as general education.']];
+ const done=Object.keys(S.done||{}).filter(k=>S.done[k]).length,ti=Math.max(0,tierIdx()),r=S.resume;
  return shell(`<div class="stack">
-  <div class="arch su-hero">${crown(96)}<p class="eyebrow" style="margin-top:10px">${nm?'Welcome, '+nm:'Welcome'}</p><h1 class="foil display su-title">Welcome Home</h1>
+  <div class="arch su-hero">${crown(96)}<p class="eyebrow" style="margin-top:10px">${back?(nm?'Welcome back, '+nm:'Welcome back'):(nm?'Welcome, '+nm:'Welcome')}</p><h1 class="foil display su-title">Welcome Home</h1>
    <div class="rule" style="margin-top:12px"><i></i><b></b><i></i></div><p class="tagline" style="margin-top:12px">Plant it. Grow it. Steward it. Multiply it.</p></div>
   ${S.msk?`<div class="band stack-s" style="text-align:center"><p class="eyebrow">Your gift is active</p><p><b>My Sister's Keeper:</b> 12 months of complimentary Premium. Every tier, calculator, and library is unlocked.</p></div>`:''}
-  <section class="word stack-s" aria-label="A word from Rev. Dr. Banks"><div class="row" style="gap:10px;flex-wrap:nowrap;justify-content:flex-start">${crown(38)}<p class="eyebrow">A word from Rev. Dr. Banks</p></div><p class="word-text">${m}</p><p class="word-sig">${SIG}</p></section>
+  ${back?fruitCard(new Date().getDate()):`<section class="word stack-s" aria-label="A word from Rev. Dr. Banks"><div class="row" style="gap:10px;flex-wrap:nowrap;justify-content:flex-start">${crown(38)}<p class="eyebrow">A word from Rev. Dr. Banks</p></div><p class="word-text">${m}</p><p class="word-sig">${SIG}</p></section>`}
   <div class="verse"><q>Well done, thou good and faithful servant: thou hast been faithful over a few things, I will make thee ruler over many things.</q><cite>MATTHEW 25:21 · KJV</cite></div>
-  <div class="gcard stack-s"><p class="eyebrow">Your first three steps · about 3 minutes</p>
+  ${back?`<div class="gcard stack-s"><p class="eyebrow">Where you left off</p>
+   ${S.tier?`<div class="kv"><span>Your tier</span><b>${TIERS[ti].name}</b></div><div class="kv"><span>Lessons completed</span><b>${done}</b></div>`:''}
+   ${r?`<div class="kv"><span>Next step</span><b>${r.label}</b></div>`:''}</div>
+  <button class="btn" ${r?`data-go="${r.go}"`:'data-jump="home"'}>${r?'Continue: '+r.label:'Continue to My Dashboard'}</button>`
+  :`<div class="gcard stack-s"><p class="eyebrow">Your first three steps · about 3 minutes</p>
    ${STEPS.map(([t,d],i)=>`<div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0;${i<2?'border-bottom:1px solid var(--line-soft)':''}"><span class="foil" style="font-family:var(--f-display);font-weight:700;min-width:24px;font-size:1.05rem">${['I','II','III'][i]}</span><span style="display:flex;flex-direction:column;gap:2px;text-align:left"><b style="color:var(--bronze)">${t}</b><span class="small">${d}</span></span></div>`).join('')}</div>
   <p class="small muted lock" style="justify-content:center">${LOCK}Your answers are private to you and never sold.</p>
-  <button class="btn" data-go="why">Begin: My Why</button>
+  <button class="btn" data-go="why">Begin: My Why</button>`}
   <p class="disclaim">Her Kingdom Wealth™ provides educational content only, not financial, investment, tax, or legal advice.</p>
  </div>`);
 }
@@ -2124,7 +2129,7 @@ function vMe(){
   <button class="card tap stack-s" data-go="share"><span class="eyebrow">Pay it forward</span><h3>Share the Blessing</h3><span class="small muted">Your mother, sister, daughter, aunt, niece, or friend.</span></button>
   <button class="card tap stack-s" data-go="bless"><span class="eyebrow">Share and bless</span><h3>Bless a Sister</h3><span class="small muted">Give a gift membership, sponsor a sister, or support the mission.</span></button>
   <button class="card tap stack-s" data-go="involve"><span class="eyebrow">Get involved</span><h3>Volunteer, Book, or Partner</h3><span class="small muted">Serve with your gifts, invite Rev. Dr. Banks, or partner with us.</span></button>
-  <button class="card tap stack-s" data-go="security"><span class="eyebrow lock">${LOCK}Your information</span><h3>Privacy &amp; Security</h3><span class="small muted">Two-step verification: On</span></button>
+  <button class="card tap stack-s" data-go="security"><span class="eyebrow lock">${LOCK}Your information</span><h3>Privacy &amp; Security</h3><span class="small muted">Two-step verification: ${window.hkwAuth&&hkwAuth.on&&hkwAuth.loaded?hkwAuth.mfaLabel():'On'}</span></button>
   ${window.hkwAuth&&hkwAuth.on?hkwAuth.accountCard():''}
   <div class="card"><p class="eyebrow" style="margin-bottom:6px">Safety settings</p>
    ${sw('safetyExit','Safety Exit','Off by default. When on, a small Exit button appears at the top of every screen. One tap replaces the app with an everyday page if someone walks in.')}
@@ -2292,7 +2297,8 @@ document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset
 document.addEventListener('change',e=>{const s=e.target.dataset&&e.target.dataset.ivsel;if(!s)return;const [sec,k]=s.split('|');INV()[sec][k]=e.target.value});
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-klpref]');if(!b)return;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
-window.__hkw={get S(){return S},render:()=>render(),go,back,toast,cheer,calc,esc,shell,crown,H,LESSONS};
+const START_PATH=location.pathname;
+window.__hkw={get S(){return S},render:()=>render(),go,back,toast,cheer,calc,esc,shell,crown,H,LESSONS,startPath:START_PATH};
 /* ---------- Supabase sync (production only) ----------
    Sends the sign-up form and Contact Us messages to the HKW Supabase project.
    Runs only on hosts listed in config.js, so the preview and tests send nothing.
@@ -2318,6 +2324,15 @@ function render(){
  r.innerHTML=h+celebrate()+cheerView()+safetyModal()+infoSheet();
  const ch=$('#chat');if(ch)ch.scrollTop=ch.scrollHeight;
  if(window.hkwAuth&&hkwAuth.afterRender)hkwAuth.afterRender();
+ syncPath();
+}
+/* Page addresses: /signup opens sign-up and /login opens sign-in; every other screen shows "/". */
+const PAGE_PATHS=['/','/signup','/login','/signin'];
+function syncPath(){
+ if(!/^https?:$/.test(location.protocol)||!PAGE_PATHS.includes(location.pathname))return;
+ const a=window.hkwAuth&&hkwAuth.on&&hkwAuth.st;
+ const want=S.view==='signup'?'/signup':S.view==='auth'&&a&&['signin','forgot','reset'].includes(a.step)?'/login':'/';
+ if(location.pathname!==want)try{history.replaceState(history.state,'',want+location.search+location.hash)}catch(e){}
 }
 
 /* ---------- Events ---------- */
@@ -2711,6 +2726,7 @@ document.addEventListener('input',e=>{const el=e.target;
  if(el.dataset.lf&&el.tagName!=='SELECT'){S.lt[el.dataset.lf]=el.value;const o=document.getElementById('letter-out');if(o)o.value=letterText()}
 });
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset.lf&&el.tagName==='SELECT'){S.lt[el.dataset.lf]=el.value;const o=document.getElementById('letter-out');if(o)o.value=letterText()}});
+if(START_PATH==='/signup')S.view='signup';
 render();
 })();
 </script>

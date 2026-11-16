@@ -28,6 +28,9 @@ const started = new Date().toISOString();
 const ROUTES = {
   '/': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
   '/index.html': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
+  '/signup': ['index.html', 'text/html; charset=utf-8', 'no-cache'],   // opens the sign-up form
+  '/login': ['index.html', 'text/html; charset=utf-8', 'no-cache'],    // opens sign-in
+  '/signin': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
   '/config.js': ['config.js', 'application/javascript; charset=utf-8', 'no-cache'],
   '/auth.js': ['auth.js', 'application/javascript; charset=utf-8', 'no-cache'],
   '/vendor/supabase-2.118.0.js': ['vendor/supabase-2.118.0.js', 'application/javascript; charset=utf-8', 'public, max-age=31536000, immutable'],

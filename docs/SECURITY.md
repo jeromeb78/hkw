@@ -14,12 +14,12 @@ Last reviewed November 16, 2026. Re-run this review after any schema, sign-in, o
 | `redemptions` | None | Read her own |
 | `app_settings`, `beta_allowlist`, `promo_codes`, `promo_attempts` | None | None (dashboard or service role only) |
 
-- **Two-step verification is enforced by the database.** Restrictive policies require `aal2` on member tables, so a password alone can't read anything.
+- **Two-step verification is optional, and enforced by the database for members who turn it on.** Restrictive policies call `public.mfa_satisfied()`: a member with a verified authenticator must be at `aal2` (signed in with her code); a member without one can use her password session. So turning it on really protects her data, not just the screen.
 - **Account creation:** sign-up has been open to everyone since November 16, 2026 (`app_settings.beta_gate = false`). Setting it back to `true` limits new accounts to emails in `beta_allowlist`.
 - **Invitation codes** are validated in the database, and a member gets 10 attempts per hour.
 - **Public form rate limits:** 3 sign-ups and 5 Contact Us messages per email per hour, and 100 submissions in total per 10 minutes.
 - **Size limits:** profile text fields are capped, and `member_state` is limited to 200 KB.
-- **Functions:** every `SECURITY DEFINER` function pins `search_path = ''`. Members can call only `redeem_invite` and `delete_my_account`, and both require `aal2`.
+- **Functions:** every `SECURITY DEFINER` function pins `search_path = ''`. Members can call only `redeem_invite`, `delete_my_account`, and `mfa_satisfied`; the first two refuse a member who turned on two-step but hasn't entered her code.
 - **Sign-up details from the browser are parsed defensively.** Malformed values can't break or skew a profile.
 - **Account deletion:** You → Sign-in → Delete my account removes the account, all progress, and her sign-up and Contact Us records.
 
@@ -30,7 +30,7 @@ Migrations: `supabase/migrations/`. Check with the Supabase security advisor. It
 ## Lessons
 
 - **Lesson text is kept off the live page.** It sits between `HKW-CONTENT` markers in `index.html`, and `server.js` strips those blocks before sending the page.
-- **Members fetch lessons one at a time** from `GET /api/lesson?key=…`, using their Supabase access token. The server asks Supabase for her profile with that token: Row Level Security returns it only to the signed-in member with two-step verification. The server then checks her plan.
+- **Members fetch lessons one at a time** from `GET /api/lesson?key=…`, using their Supabase access token. The server asks Supabase for her profile with that token: Row Level Security returns it only to the signed-in member (with her authenticator code, if she turned two-step on). The server then checks her plan.
   - Seed lessons 1–3 are free for every member.
   - All other lessons need an active paid or gifted plan.
   - Expired plans are refused.

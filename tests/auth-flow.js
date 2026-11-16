@@ -40,6 +40,7 @@ function mockSupabase(db) {
       return body.password === 'correct horse battery' ? send(200, session('aal1')) : send(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
     }
     if (p === '/auth/v1/user' && m === 'GET') return send(200, user());
+    if (p === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') return send(200, session(db.factor === 'verified' ? 'aal2' : 'aal1'));
     if (p === '/auth/v1/user' && m === 'PUT') { db.newPassword = body.password; return send(200, user()); }
     if (p === '/auth/v1/factors' && m === 'POST') {
       db.factor = 'unverified';
@@ -103,7 +104,8 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     try { claims = t && JSON.parse(Buffer.from(t[1].split('.')[1], 'base64url').toString()); } catch (e) {}
     if (!q.url.startsWith('/rest/v1/profiles') || !claims) { r.writeHead(401); return r.end('{}'); }
     r.writeHead(200, { 'content-type': 'application/json' });
-    r.end(JSON.stringify(claims.aal === 'aal2' ? [{ plan: db.profile.plan, plan_expires_at: db.profile.plan_expires_at }] : []));
+    const ok = claims.aal === 'aal2' || db.factor !== 'verified';  // RLS: aal2 needed only when two-step is on
+    r.end(JSON.stringify(ok ? [{ plan: db.profile.plan, plan_expires_at: db.profile.plan_expires_at }] : []));
   }).listen(PORT + 1);
   const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')],
     { env: { ...process.env, PORT: String(PORT), HKW_SUPABASE_SERVER_URL: 'http://127.0.0.1:' + (PORT + 1) }, stdio: 'ignore' });
@@ -117,7 +119,10 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(!/Owner or steward|Firstfruits means|vesting schedule/.test(pageHtml) && pageHtml.includes('lessons load after sign-in'), 'live page contains no lesson text');
     const api = async (key, tok) => (await fetch(base + '/api/lesson?key=' + key, tok ? { headers: { Authorization: 'Bearer ' + tok } } : {})).status;
     assert(await api('seed-1') === 401, 'lesson API refuses visitors who are not signed in');
-    assert(await api('seed-1', jwt(uid, 'aal1', 1)) === 401, 'lesson API refuses a password-only session (no two-step verification)');
+    db.factor = 'verified';
+    assert(await api('seed-1', jwt(uid, 'aal1', 1)) === 401, 'lesson API refuses a password-only session when two-step is on');
+    db.factor = null;
+    assert(await api('seed-1', jwt(uid, 'aal1', 11)) === 200, 'lesson API accepts a password session when two-step is off');
     assert(await api('seed-1', 'not-a-real-token-at-all-xxxxxxxx') === 401, 'lesson API refuses a forged token');
     db.profile.plan = 'complimentary';
     assert(await api('seed-1', jwt(uid, 'aal2', 2)) === 200, 'complimentary member can open the free Seed lessons');
@@ -129,8 +134,25 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     db.profile.plan_expires_at = new Date(Date.now() + 864e5 * 365).toISOString();
 
 
-    /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
+    /* --- Page addresses: /signup and /login open those screens, and the address bar follows the screen --- */
     let pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/signup');
+    await until(pg, () => window.hkwAuth && /Begin Your Journey/.test(document.querySelector('h1').textContent));
+    assert(true, '/signup opens the sign-up form');
+    await pg.goto(SITE + '/login');
+    await until(pg, () => /Sign In/.test(document.querySelector('h1').textContent));
+    assert(true, '/login opens sign-in');
+    await pg.click('[data-go="signup"]');
+    await until(pg, () => location.pathname === '/signup');
+    assert(true, 'address bar shows /signup on the sign-up form');
+    await pg.goto(SITE + '/');
+    await pg.click('[data-auth="signin"]');
+    await until(pg, () => location.pathname === '/login');
+    assert(true, 'address bar shows /login on sign-in');
+    await pg.context().close();
+
+    /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
+    pg = await page(browser, db, errs);
     await pg.goto(SITE + '/');
     assert(!(await pg.$('.demo-strip')), 'preview strip hidden on the live site');
     await pg.click('[data-explore="1"]');
@@ -164,14 +186,9 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(true, 'wrong email code is rejected');
     assert(true, '8-digit email codes are accepted (Supabase default on new projects)');
     await pg.fill('#code', '1234 5678'); await pg.click('#auth-verify [type=submit]');
-    await until(pg, () => /Protect Your Account/.test(document.querySelector('h1').textContent));
-    assert(await pg.$('img[alt^="QR code"]'), 'two-step enrollment shows a QR code');
-    await pg.fill('#code', '111111'); await pg.click('#auth-enroll [type=submit]');
-    await until(pg, () => /didn.t work/.test(document.body.textContent));
-    assert(true, 'wrong authenticator code is rejected');
-    await pg.fill('#code', '654321'); await pg.click('#auth-enroll [type=submit]');
     await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome');
-    assert(/Welcome Home/.test(await h1(pg)) && /MATTHEW 25:21/.test(await pg.textContent('#root')), 'after two-step setup, the new member sees the welcome page');
+    assert(/Welcome Home/.test(await h1(pg)) && /MATTHEW 25:21/.test(await pg.textContent('#root')) && !db.log.some(l => /factors/.test(l)),
+      'after confirming her email, the new member goes straight to the welcome page (two-step is optional)');
     assert(await pg.evaluate(() => window.__hkw.S.plan === 'premium' && window.__hkw.S.msk), "My Sister's Keeper plan comes from the server");
     await pg.click('[data-go="why"]');
     await pg.click('[data-val="Peace of mind"]');
@@ -183,7 +200,16 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(db.state && db.state.why.values.includes('Peace of mind') && db.state.calc, 'why card and calculators saved to member_state');
     assert(!JSON.stringify(db.state).includes('safetyExit') && !('safe' in db.state), 'safety answer and Safety Exit are never saved');
     await pg.evaluate(() => window.__hkw.go('app', { tab: 'me' }));
-    assert(/Two-step verification/.test(await pg.textContent('#root')), 'account card shows two-step verification');
+    assert(/Account settings/.test(await pg.textContent('#root')) && /Two-stepverificationOff/.test((await pg.textContent('#root')).replace(/\s+/g, '')), 'account settings show two-step verification as Off');
+    await pg.click('[data-auth="mfa-on"]');
+    await until(pg, () => /Turn On Two-Step Verification/.test(document.querySelector('h1').textContent));
+    assert(await pg.$('img[alt^="QR code"]'), 'turning it on shows a QR code');
+    await pg.fill('#code', '111111'); await pg.click('#auth-enroll [type=submit]');
+    await until(pg, () => /didn.t work/.test(document.body.textContent));
+    assert(true, 'wrong authenticator code is rejected');
+    await pg.fill('#code', '654321'); await pg.click('#auth-enroll [type=submit]');
+    await until(pg, () => window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'me');
+    assert(db.factor === 'verified' && /Two-stepverificationOn/.test((await pg.textContent('#root')).replace(/\s+/g, '')), 'member can turn on two-step verification in account settings');
     await pg.click('[data-auth="signout"]');
     await pg.waitForURL(SITE + '/');
     await pg.context().close();
@@ -199,7 +225,10 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(true, 'wrong password is rejected');
     await signIn(pg);
     assert(true, 'returning member is asked for a two-step code');
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'archetype');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    assert(/Welcome back, Grace/.test(await pg.textContent('#root')) && /Continue: Your investor profile/.test(await pg.textContent('#root')), 'sign-in opens the Welcome back page');
+    await pg.click('[data-go="archetype"]');
+    await until(pg, () => window.__hkw.S.view === 'archetype');
     let S = await pg.evaluate(() => { const S = window.__hkw.S; return { tier: S.tier, why: S.why.values, done: S.done }; });
     assert(S.tier === 'sower' && S.why[0] === 'Legacy' && S.done['seed-0'], 'saved progress reloads at sign-in');
     assert(true, 'member who skipped her investor profile resumes there');
@@ -213,7 +242,9 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     const tier = db.profile.tier; db.profile.tier = null;
     pg = await page(browser, db, errs);
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'quiz');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    await pg.click('[data-go="quiz"]');
+    await until(pg, () => window.__hkw.S.view === 'quiz');
     assert(true, 'member who chose her why but not the quiz resumes at the quiz');
     await pg.context().close();
     db.profile.tier = tier;
@@ -225,8 +256,12 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     pg = await page(browser, db, errs);
     pg.on('dialog', d => { errs.push('dialog opened'); d.dismiss(); });
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
-    assert(true, 'member who finished onboarding goes straight to her dashboard');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    assert(/Continue to My Dashboard/.test(await pg.textContent('#root')) && /Lessons completed/.test(await pg.textContent('#root')), 'member who finished onboarding sees Welcome back with her progress');
+    await pg.click('#root [data-jump="home"].btn');
+    await until(pg, () => window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
+    assert(true, 'Continue takes her to her dashboard');
+    assert(new URL(pg.url()).pathname === '/', 'address bar returns to / once she is signed in');
     await pg.evaluate(() => window.__hkw.go('lesson', { lesson: [2, 3] }));
     await until(pg, () => document.querySelectorAll('section.card').length > 2);
     assert(await pg.evaluate(() => !!window.__hkw.LESSONS['steward-3']), 'Premium lesson loads from the server after sign-in');
@@ -278,6 +313,19 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome');
     assert(db.newPassword === 'invited passphrase!' && db.profile.first_name === 'Ruth', 'invited member sets her name and password');
     assert(/Welcome, Ruth/.test(await pg.textContent('#root')), 'invited member then sees the welcome page with her name');
+    await pg.evaluate(() => window.__hkw.go('app', { tab: 'me' }));
+    await pg.click('[data-auth="mfa-off"]');
+    await until(pg, () => /Turn Off Two-Step Verification/.test(document.querySelector('h1').textContent));
+    await pg.click('#auth-mfaoff [type=submit]');
+    await until(pg, () => window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'me');
+    assert(db.factor === null && /Two-stepverificationOff/.test((await pg.textContent('#root')).replace(/\s+/g, '')), 'member can turn off two-step verification');
+    await pg.context().close();
+    pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/login'); 
+    await pg.fill('#email', 'grace@example.com'); await pg.fill('#password', 'correct horse battery');
+    await pg.click('#auth-signin [type=submit]');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome');
+    assert(true, 'with two-step off, sign-in needs only email and password');
     assert(errs.length === 0, 'no script or CSP errors: ' + JSON.stringify(errs));
     console.log('auth flow: all checks passed');
   } catch (e) {
