@@ -331,6 +331,31 @@
     });
   };
 
+  /* ---------- Lessons load from the server after sign-in (the live page has no lesson text) ---------- */
+  var lessonStatus = {};  // key -> 'loading' | 'locked' | 'missing' | 'error'
+  A.lessonState = function (key) { return lessonStatus[key]; };
+  A.lessonCard = function (key) {
+    if (!lessonStatus[key]) { lessonStatus[key] = 'loading'; fetchLesson(key); }
+    var s = lessonStatus[key];
+    if (s === 'loading') return '<div class="card stack-s center" role="status"><p class="eyebrow">One moment</p><p>Opening your lesson…</p></div>';
+    if (s === 'locked') return '<div class="arch">' + app.crown(70) + '<p class="eyebrow">Premium lesson</p><h2 style="margin-top:10px">Unlock every tier</h2>' +
+      '<p class="small muted" style="margin-top:10px">This lesson is part of Premium.</p></div><button class="btn" data-go="plans">See Membership Plans</button>';
+    return '<div class="card stack-s"><p class="eyebrow">We could not open this lesson</p><p class="small">Check your connection, then try again.</p>' +
+      '<button class="btn ghost inline" data-auth="lesson-retry" data-key="' + esc(key) + '">Try Again</button></div>';
+  };
+  function fetchLesson(key) {
+    ready.then(function () { return sb.auth.getSession(); }).then(function (r) {
+      var token = r.data && r.data.session && r.data.session.access_token;
+      if (!token) return { status: 401 };
+      return fetch('/api/lesson?key=' + encodeURIComponent(key), { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (b) { return { status: res.status, body: b }; }); });
+    }).then(function (r) {
+      if (r.status === 200 && r.body && r.body.lesson && r.body.key === key) { app.LESSONS[key] = r.body.lesson; delete lessonStatus[key]; }
+      else lessonStatus[key] = r.status === 403 ? 'locked' : r.status === 404 ? 'missing' : 'error';
+    }).catch(function () { lessonStatus[key] = 'error'; })
+      .then(function () { if (S.view === 'lesson') app.render(); });
+  }
+
   A.accountCard = function () {
     if (!A.loaded) return '';
     return '<div class="card stack-s"><p class="eyebrow">Sign-in</p>' +
@@ -559,6 +584,7 @@
     else if (a === 'changepw') { st.recovery = false; show('newpass'); }
     else if (a === 'signout') A.signOut();
     else if (a === 'delete') show('delete');
+    else if (a === 'lesson-retry') { delete lessonStatus[b.dataset.key]; app.render(); }
     else if (a === 'resend') {
       ready.then(function () { return sb.auth.resend({ type: 'signup', email: st.email, options: { emailRedirectTo: location.origin + '/' } }); })
         .then(function (r) { if (r.error) throw r.error; st.msg = 'We sent a new code to ' + st.email + '.'; show('verify'); })

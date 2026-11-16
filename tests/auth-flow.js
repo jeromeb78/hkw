@@ -10,7 +10,7 @@ const PORT = 3177;
 const SB = 'https://ifysjtiphdvamocosngp.supabase.co';
 const SITE = 'https://herkingdomwealth.com';
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
-const jwt = (uid, aal) => b64({ alg: 'HS256', typ: 'JWT' }) + '.' + b64({ sub: uid, aal, role: 'authenticated', email: 'grace@example.com',
+const jwt = (uid, aal, nonce) => b64({ alg: 'HS256', typ: 'JWT' }) + '.' + b64({ sub: uid, aal, nonce, role: 'authenticated', email: 'grace@example.com',
   exp: Math.floor(Date.now() / 1000) + 3600, session_id: 's1', amr: [{ method: 'password', timestamp: 1 }] }) + '.sig';
 
 function mockSupabase(db) {
@@ -91,14 +91,43 @@ const h1 = pg => pg.$eval('h1', e => e.textContent.trim());
 const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
 
 (async () => {
-  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
-  await new Promise(r => setTimeout(r, 700));
-  const browser = await chromium.launch();
-  const errs = [];
   const db = { log: [], factor: null, lessons: [], state: null,
     profile: { id: 'u', email: 'grace@example.com', first_name: 'Grace', last_name: 'Hope', phone: '2145550123', country: 'United States',
       tier: null, plan: 'sisters_keeper', plan_expires_at: new Date(Date.now() + 864e5 * 365).toISOString(), email_consent: true, sms_consent: false } };
+  // Stand-in for Supabase as seen by server.js when it checks a member before sending a lesson:
+  // RLS returns her profile only for a valid aal2 token.
+  const http = require('http');
+  const sbMock = http.createServer((q, r) => {
+    const t = /^Bearer (.+)$/.exec(q.headers.authorization || ''); let claims = null;
+    try { claims = t && JSON.parse(Buffer.from(t[1].split('.')[1], 'base64url').toString()); } catch (e) {}
+    if (!q.url.startsWith('/rest/v1/profiles') || !claims) { r.writeHead(401); return r.end('{}'); }
+    r.writeHead(200, { 'content-type': 'application/json' });
+    r.end(JSON.stringify(claims.aal === 'aal2' ? [{ plan: db.profile.plan, plan_expires_at: db.profile.plan_expires_at }] : []));
+  }).listen(PORT + 1);
+  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')],
+    { env: { ...process.env, PORT: String(PORT), HKW_SUPABASE_SERVER_URL: 'http://127.0.0.1:' + (PORT + 1) }, stdio: 'ignore' });
+  await new Promise(r => setTimeout(r, 900));
+  const browser = await chromium.launch();
+  const errs = [];
   try {
+    /* --- Lessons are not in the public page, and the lesson API enforces sign-in and plan --- */
+    const base = 'http://127.0.0.1:' + PORT, uid = '11111111-1111-4111-8111-111111111111';
+    const pageHtml = await (await fetch(base + '/')).text();
+    assert(!/Owner or steward|Firstfruits means|vesting schedule/.test(pageHtml) && pageHtml.includes('lessons load after sign-in'), 'live page contains no lesson text');
+    const api = async (key, tok) => (await fetch(base + '/api/lesson?key=' + key, tok ? { headers: { Authorization: 'Bearer ' + tok } } : {})).status;
+    assert(await api('seed-1') === 401, 'lesson API refuses visitors who are not signed in');
+    assert(await api('seed-1', jwt(uid, 'aal1', 1)) === 401, 'lesson API refuses a password-only session (no two-step verification)');
+    assert(await api('seed-1', 'not-a-real-token-at-all-xxxxxxxx') === 401, 'lesson API refuses a forged token');
+    db.profile.plan = 'complimentary';
+    assert(await api('seed-1', jwt(uid, 'aal2', 2)) === 200, 'complimentary member can open the free Seed lessons');
+    assert(await api('steward-3', jwt(uid, 'aal2', 3)) === 403, 'complimentary member cannot download Premium lessons');
+    db.profile.plan = 'sisters_keeper';
+    assert(await api('steward-3', jwt(uid, 'aal2', 4)) === 200, 'Premium member can open Premium lessons');
+    db.profile.plan_expires_at = new Date(Date.now() - 864e5).toISOString();
+    assert(await api('steward-3', jwt(uid, 'aal2', 5)) === 403, 'expired Premium cannot open Premium lessons');
+    db.profile.plan_expires_at = new Date(Date.now() + 864e5 * 365).toISOString();
+
+
     /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
     let pg = await page(browser, db, errs);
     await pg.goto(SITE + '/');
@@ -189,6 +218,9 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
     await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
     assert(true, 'member who finished onboarding goes straight to her dashboard');
+    await pg.evaluate(() => window.__hkw.go('lesson', { lesson: [2, 3] }));
+    await until(pg, () => document.querySelectorAll('section.card').length > 2);
+    assert(await pg.evaluate(() => !!window.__hkw.LESSONS['steward-3']), 'Premium lesson loads from the server after sign-in');
     const T = await pg.evaluate(() => ({ j: window.__hkw.S.j, p: window.__hkw.calc.compound.p, pwned: !!window.pwned,
       img: !!document.querySelector('#root img[src="x"]') }));
     assert(JSON.stringify(T.j) === '[["Jan",100]]' && T.p !== '<b>', 'tampered saved data is rejected field by field');
@@ -243,6 +275,6 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     console.error(e.message); console.error('request log:\n' + db.log.join('\n')); console.error('errors:', errs);
     process.exitCode = 1;
   } finally {
-    await browser.close(); srv.kill();
+    await browser.close(); srv.kill(); sbMock.close();
   }
 })();

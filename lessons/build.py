@@ -20,13 +20,16 @@ for k, v in lessons.items():
     for f in ['intro','connect','sections','pros','cons','watch','tip','fit','example','terms','verse','check']: assert f in v, (k, f)
     assert set(v['fit']) == {'starter','mom','rebuilder','ent','exec','late','retiree','legacy'}, k
 js = lambda o: json.dumps(o, ensure_ascii=False).replace('</', '<\\/')
-out = ['/*HKW-LESSONS-START*/', '(function(){',
+# Module titles are public (landing page, Learn tab). Lesson text sits between the HKW-CONTENT
+# markers: server.js strips it from the live page and serves each lesson only to signed-in members.
+out = ['/*HKW-LESSONS-START*/']
+for i, (t, mods) in enumerate(ORDER.items()):
+    out.append(f"TIERS[{i}].modules={js(mods)};")
+out += ['/*HKW-CONTENT-START*/', '(function(){',
  "const ipo=LESSONS['seed-5'], ira=LESSONS['sower-1'];",
  "if(ipo&&ipo.deep)LESSONS['seed-9']=ipo;",
  "if(ira&&ira.deep)LESSONS['sower-0']=ira;",
  "delete LESSONS['sower-1'];"]
-for i, (t, mods) in enumerate(ORDER.items()):
-    out.append(f"TIERS[{i}].modules={js(mods)};")
 out.append(f"Object.assign(LESSONS,{js(lessons)});")
 for k, v in extra.items():
     out.append(f"if(LESSONS[{js(k)}]&&LESSONS[{js(k)}].quiz.length<10)LESSONS[{js(k)}].quiz.push(...{js(v)});")
@@ -35,6 +38,7 @@ TIPS={'seed-0':"Set up your giving, saving, and investing as automatic transfers
  'sower-0':"Check your workplace plan's vesting schedule before you change jobs. Leaving a few months early can cost you some or all of your employer's matching contributions."}
 for k,v in TIPS.items(): out.append(f"if(LESSONS[{js(k)}]&&!LESSONS[{js(k)}].tip)LESSONS[{js(k)}].tip={js(v)};")
 out.append('})();')
+out.append('/*HKW-CONTENT-END*/')
 out.append('/*HKW-LESSONS-END*/')
 block = '\n'.join(out) + '\n'
 s = open(P).read()
