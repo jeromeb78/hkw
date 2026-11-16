@@ -75,6 +75,7 @@ const CSP = [
   'font-src https://fonts.gstatic.com',
   "img-src 'self' data: blob: https:",
   ("connect-src 'self' " + supabaseOrigin()).trim(),
+  "object-src 'none'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -86,6 +87,8 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'X-Permitted-Cross-Domain-Policies': 'none',
 };
 
 function send(res, status, headers, body, method) {
@@ -113,6 +116,9 @@ const server = http.createServer((req, res) => {
     }
 
     // HTTPS + canonical host (Hostinger terminates TLS in front of the app and sets X-Forwarded-Proto).
+    if (!/^[a-z0-9.-]{1,253}(:\d{1,5})?$|^\[::1\](:\d{1,5})?$/.test(host)) {
+      return send(res, 400, { 'Content-Type': 'text/plain' }, 'Bad request', method);
+    }
     if (!local) {
       const wantHost = CANONICAL_HOST && host !== CANONICAL_HOST && host === 'www.' + CANONICAL_HOST ? CANONICAL_HOST : host;
       if (proto === 'http' || wantHost !== host) {

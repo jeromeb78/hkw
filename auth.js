@@ -21,7 +21,7 @@
   var esc = app.esc;
   var LIB = 'vendor/supabase-2.118.0.js';
   var PUBLIC = ['landing', 'signup', 'auth', 'help', 'exit'];
-  var STEPS = ['loading', 'signin', 'verify', 'enroll', 'mfa', 'forgot', 'reset', 'newpass', 'unavailable'];
+  var STEPS = ['loading', 'signin', 'verify', 'enroll', 'mfa', 'forgot', 'reset', 'newpass', 'delete', 'unavailable'];
   // Member choices saved in member_state.state (plus calculator inputs). Safety settings stay on the device.
   var STATE_KEYS = ['why', 'qa', 'placed', 'acts', 'j', 'jSample', 'lq', 'coach', 'acct', 'ms'];
   var LESSON_RE = /^(seed|sower|steward|kingdom)-\d$/;
@@ -165,10 +165,56 @@
     S.done = {};
     lessons.forEach(function (x) { S.done[x.lesson_key] = true; });
     if (state) {
-      STATE_KEYS.forEach(function (k) { if (k in state) S[k] = state[k]; });
-      if (state.calc) Object.keys(state.calc).forEach(function (t) { if (app.calc[t]) Object.assign(app.calc[t], state.calc[t]); });
+      var clean = sanitize(state);
+      Object.keys(clean).forEach(function (k) { if (k !== 'calc') S[k] = clean[k]; });
+      if (clean.calc) Object.keys(clean.calc).forEach(function (t) { if (app.calc[t]) Object.assign(app.calc[t], clean.calc[t]); });
     }
   }
+
+  /* Saved data is checked field by field before the app uses it: only the expected types and sizes
+     are accepted, so a tampered or corrupted row can't inject markup or break a screen. */
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
+  function num(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
+  function bools(o) { var r = {}; if (o && typeof o === 'object') Object.keys(o).slice(0, 200).forEach(function (k) { if (/^[\w-]{1,40}$/.test(k) && typeof o[k] === 'boolean') r[k] = o[k]; }); return r; }
+  function sanitize(st0) {
+    var o = {};
+    if (st0.why && typeof st0.why === 'object') {
+      o.why = { values: (Array.isArray(st0.why.values) ? st0.why.values : []).filter(function (v) { return typeof v === 'string'; }).slice(0, 3).map(function (v) { return v.slice(0, 80); }),
+        text: str(st0.why.text, 280) };
+    }
+    if (Array.isArray(st0.qa)) o.qa = st0.qa.slice(0, 20).map(function (v) { return Number.isInteger(v) && v >= 0 && v < 10 ? v : 0; });
+    ['placed', 'jSample', 'coach', 'acct'].forEach(function (k) { if (typeof st0[k] === 'boolean') o[k] = st0[k]; });
+    if (st0.acts) o.acts = bools(st0.acts);
+    if (Array.isArray(st0.j)) {
+      var j = st0.j.filter(function (x) { return Array.isArray(x) && MONTHS.indexOf(x[0]) >= 0 && num(x[1]) !== null; }).slice(-12)
+        .map(function (x) { return [x[0], x[1]]; });
+      if (j.length) o.j = j;
+    }
+    if (st0.lq && typeof st0.lq === 'object') {
+      o.lq = {};
+      Object.keys(st0.lq).forEach(function (k) {
+        if (!LESSON_RE.test(k) || !st0.lq[k] || typeof st0.lq[k] !== 'object') return;
+        var a = {}; Object.keys(st0.lq[k]).forEach(function (q) { var v = st0.lq[k][q]; if (/^\d{1,2}$/.test(q) && Number.isInteger(v) && v >= 0 && v < 10) a[q] = v; });
+        o.lq[k] = a;
+      });
+    }
+    if (st0.ms && typeof st0.ms === 'object') {
+      var p = st0.ms.p || {};
+      o.ms = { a: (Array.isArray(st0.ms.a) ? st0.ms.a : []).slice(0, 40).map(function (v) { return typeof v === 'string' ? v.slice(0, 40) : null; }),
+        p: { first: str(p.first, 600), taught: str(p.taught, 600), release: str(p.release, 600), embrace: str(p.embrace, 600) } };
+    }
+    if (st0.calc && typeof st0.calc === 'object') {
+      o.calc = {};
+      Object.keys(app.calc).forEach(function (t) {
+        var src = st0.calc[t]; if (!src || typeof src !== 'object') return;
+        var c = {}; Object.keys(app.calc[t]).forEach(function (f) { var v = num(src[f]); if (v !== null && Math.abs(v) < 1e12) c[f] = v; });
+        o.calc[t] = c;
+      });
+    }
+    return o;
+  }
+  A.sanitize = sanitize;
 
   /* ---------- Automatic saving ---------- */
   function snapshot() {
@@ -218,6 +264,8 @@
 
   /* ---------- Hooks called by index.html ---------- */
   A.guard = function () {
+    // The Admin screen is a preview mock-up: never shown to members on the live site.
+    if (S.view === 'admin' && !A.previewTools) { S.view = 'app'; S.tab = 'home'; }
     if (A.loaded) {
       if (S.view === 'signup') { S.view = 'app'; S.tab = 'home'; }
       return;
@@ -289,7 +337,8 @@
       '<div class="kv"><span>Email</span><b>' + esc(A.user.email || '') + '</b></div>' +
       '<div class="kv"><span>Two-step verification</span><b>On</b></div>' +
       '<div class="kv"><span>This device</span><b>' + (keep() ? 'Stays signed in' : 'Signs out when closed') + '</b></div>' +
-      '<button class="btn ghost inline" data-auth="changepw">Change password</button></div>';
+      '<button class="btn ghost inline" data-auth="changepw">Change password</button>' +
+      '<button class="link" style="align-self:flex-start" data-auth="delete">Delete my account</button></div>';
   };
 
   /* ---------- Views ---------- */
@@ -368,6 +417,13 @@
         field('password2', 'Confirm new password', 'password', 'autocomplete="new-password"') +
         '<button class="btn" type="submit">Save New Password</button>' +
         '<button class="link" type="button" data-auth="forgot">Send a new code</button></div></form>';
+    } else if (s === 'delete' && A.loaded) {
+      h = '<form id="auth-delete" class="stack" novalidate>' + head('Your account', 'Delete My Account',
+        'This permanently deletes your account, your progress, your why, your Wealth Journey and Money Story, and any sign-up or Contact Us messages sent from ' + esc(A.user.email || '') + '. It cannot be undone.') + notes() +
+        '<div class="gcard stack-s">' + field('confirm', 'Type DELETE to confirm', 'text', 'autocomplete="off" autocapitalize="characters"') +
+        '<button class="btn" type="submit">Delete My Account Forever</button>' +
+        '<button class="link" type="button" data-jump="me">Keep my account</button></div>' +
+        '<p class="fine">A paid membership is managed separately: cancel it under Membership first so you are not charged again.</p></form>';
     } else if (s === 'newpass') {
       h = '<form id="auth-newpass" class="stack" novalidate>' +
         (st.invited ? head('Your invitation', 'Create Your Account', 'Welcome! Add your name and choose a password. You will use them with your authenticator app each time you sign in.')
@@ -451,6 +507,16 @@
         .then(function (r) { if (r.error) throw r.error; show('loading'); })
         .catch(function (x) { st.recovery = false; st.newPw = null; fail(x, 'reset'); });
     }
+    if (id === 'delete') {
+      if ((d.confirm || '').trim().toUpperCase() !== 'DELETE') return fail({ message: 'Type DELETE to confirm.' });
+      busy(form);
+      return sb.rpc('delete_my_account').then(function (r) {
+        if (r.error) throw r.error;
+        A.loaded = false;
+        return sb.auth.signOut({ scope: 'local' }).catch(function () {});
+      }).then(function () { store.removeItem('hkw-auth'); setKeep(false); location.replace('/'); })
+        .catch(function (x) { fail(x, 'delete'); });
+    }
     if (id === 'newpass') {
       var ne = pwError(d.password, d.password2);
       if (st.invited && !(d.first_name || '').trim()) ne = 'Enter your first name.';
@@ -492,6 +558,7 @@
     else if (a === 'forgot') show('forgot');
     else if (a === 'changepw') { st.recovery = false; show('newpass'); }
     else if (a === 'signout') A.signOut();
+    else if (a === 'delete') show('delete');
     else if (a === 'resend') {
       ready.then(function () { return sb.auth.resend({ type: 'signup', email: st.email, options: { emailRedirectTo: location.origin + '/' } }); })
         .then(function (r) { if (r.error) throw r.error; st.msg = 'We sent a new code to ' + st.email + '.'; show('verify'); })

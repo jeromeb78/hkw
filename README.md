@@ -36,6 +36,7 @@
 | `scripts/check-release.js`, `deploy/robots.txt` | `npm run build` release check, and the beta `robots.txt` |
 | `.github/workflows/ci.yml` | Runs Hostinger's build plus the tests on every push and PR |
 | `docs/DEPLOY-HOSTINGER.md` | Hostinger and Supabase setup |
+| `docs/SECURITY.md` | Security baseline: RLS and grants, rate limits, headers, and open items |
 
 ## Run it locally
 

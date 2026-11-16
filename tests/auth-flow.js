@@ -59,6 +59,7 @@ function mockSupabase(db) {
     if (p === '/rest/v1/member_state' && m === 'GET') return send(200, db.state ? [{ state: db.state }] : []);
     if (p === '/rest/v1/member_state' && m === 'POST') { db.state = body.state; return send(201); }
     if (p === '/rest/v1/beta_signups') return send(201);
+    if (p === '/rest/v1/rpc/delete_my_account') { db.deleted = true; return send(204); }
     return send(404, { msg: 'unmocked ' + m + ' ' + p });
   };
 }
@@ -179,11 +180,30 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.context().close();
     db.profile.tier = tier;
 
-    /* --- Onboarding complete: straight to the dashboard --- */
+    /* --- Onboarding complete: straight to the dashboard (with a tampered saved row) --- */
+    db.state.why.values = ['<img src=x onerror="window.pwned=1">', 'Legacy'];
+    db.state.j = [['<script>', 5], ['Jan', 100], ['Feb', 'NaN']];
+    db.state.calc = { compound: { p: '<b>', m: 300 } };
     pg = await page(browser, db, errs);
+    pg.on('dialog', d => { errs.push('dialog opened'); d.dismiss(); });
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
     await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
     assert(true, 'member who finished onboarding goes straight to her dashboard');
+    const T = await pg.evaluate(() => ({ j: window.__hkw.S.j, p: window.__hkw.calc.compound.p, pwned: !!window.pwned,
+      img: !!document.querySelector('#root img[src="x"]') }));
+    assert(JSON.stringify(T.j) === '[["Jan",100]]' && T.p !== '<b>', 'tampered saved data is rejected field by field');
+    await pg.evaluate(() => window.__hkw.go('app', { tab: 'me' }));
+    assert(!(await pg.evaluate(() => !!window.pwned || !!document.querySelector('#root img[src="x"]'))), 'saved text is never rendered as markup');
+    await pg.evaluate(() => window.__hkw.go('admin'));
+    assert(await pg.evaluate(() => window.__hkw.S.view === 'app'), 'preview Admin screen is blocked on the live site');
+    await pg.evaluate(() => window.__hkw.go('app', { tab: 'me' }));
+    await pg.click('[data-auth="delete"]');
+    await pg.fill('#confirm', 'delete me'); await pg.click('#auth-delete [type=submit]');
+    await until(pg, () => /Type DELETE/.test(document.body.textContent));
+    assert(!db.deleted, 'account deletion needs the typed confirmation');
+    await pg.fill('#confirm', 'DELETE'); await pg.click('#auth-delete [type=submit]');
+    await pg.waitForURL(SITE + '/');
+    assert(db.deleted, 'member can delete her account');
     await pg.context().close();
 
     /* --- Forgot password: email code, then two-step code, then the new password is saved --- */
