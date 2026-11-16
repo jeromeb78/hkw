@@ -18,7 +18,8 @@ hPanel → Websites → Add website → **Node.js app** → connect GitHub repo 
 
 ## What the server does
 
-- Serves **only** these paths: `/`, `/index.html`, `/config.js`, `/auth.js`, `/vendor/supabase-2.118.0.js`, `/robots.txt`, `/assets/HKW-Share-Card.png`, and `/api/health`. Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
+- Serves **only** these paths: `/`, `/index.html`, `/config.js`, `/auth.js`, `/vendor/supabase-2.118.0.js`, `/robots.txt`, `/assets/HKW-Share-Card.png`, `/api/health`, and `/api/lesson` (members only).
+- Keeps lesson text off the page. It removes the `HKW-CONTENT` blocks from `index.html`, and sends each lesson only to a signed-in member whose plan includes it (see `docs/SECURITY.md` → Lessons). `/api/health` shows `lessons: 40` when all lessons loaded. Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
 - Redirects `http` → `https` (using Hostinger's `X-Forwarded-Proto`), and `www.` → the apex domain when `CANONICAL_HOST` is set.
 - Sends security headers: Content-Security-Policy (only the Supabase project is allowed for `connect-src`), HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, and Permissions-Policy.
 - Gzips the 660 KB app to about 210 KB and uses ETags, with `no-cache` on the HTML and config so every release shows up right away.
@@ -107,6 +108,10 @@ Create the token at supabase.com → Account → Access Tokens. It can manage **
 **Either way, also set up custom SMTP** (Authentication → Emails → SMTP Settings). The script can't do this because it needs your email provider's password. **It is required for testers:** Supabase's built-in email only sends to members of your Supabase team, and only a few per hour. Use a sender like `Her Kingdom Wealth <support@herkingdomwealth.com>`, or a neutral sender name for Discreet notifications, and turn off link/click tracking at your provider, because tracking breaks the email links.
 
 Subject lines are deliberately neutral ("Your confirmation code") so nothing about money shows on a lock screen.
+
+### Who can sign up
+
+Sign-up is **open to everyone** (since November 16, 2026). To limit it to invited testers again: `update public.app_settings set beta_gate = true;`, then add their emails to `beta_allowlist` as below.
 
 ### Managing beta testers
 

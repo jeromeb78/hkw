@@ -5,12 +5,19 @@
  *
  * Serves ONLY the public files listed in ROUTES. Lesson sources, docs, emails and tests in the
  * repository are never reachable, because nothing outside ROUTES is served.
+ *
+ * Lessons: the lesson text in index.html (between HKW-CONTENT markers) is removed from the page this
+ * server sends. Members fetch one lesson at a time from GET /api/lesson?key=seed-3 with their Supabase
+ * access token; the server asks Supabase for her profile with that token (Row Level Security only
+ * returns it to the signed-in member with two-step verification), then checks her plan.
+ * No secret keys are needed on the server.
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
+const vm = require('vm');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 3000;
@@ -43,13 +50,33 @@ function configOverride() {
   return { cfg, body: '/* generated from environment by server.js */\nwindow.HKW_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n' };
 }
 
+/* ---------- Lessons: split the lesson text out of index.html ---------- */
+const CONTENT_RE = /\/\*HKW-CONTENT-START\*\/[\s\S]*?\/\*HKW-CONTENT-END\*\//g;
+const LESSON_KEY = /^(seed|sower|steward|kingdom)-\d$/;
+const FREE_LESSONS = new Set(['seed-0', 'seed-1', 'seed-2']);  // same rule as the app: first three Seed lessons
+let LESSONS = {};
+function splitLessons(html) {
+  const blocks = html.match(CONTENT_RE) || [];
+  const code = blocks.map(b => b.slice('/*HKW-CONTENT-START*/'.length, -'/*HKW-CONTENT-END*/'.length)).join(';\n');
+  try {
+    LESSONS = vm.runInNewContext('const LESSONS = {};\n' + code + ';\nJSON.parse(JSON.stringify(LESSONS))', {}, { timeout: 2000 });
+  } catch (e) {
+    console.error('Could not read lessons from index.html: ' + e.message);
+    LESSONS = {};
+  }
+  return html.replace(CONTENT_RE, '/* lessons load after sign-in */');
+}
+
 // Load files once at startup (the whole public site is ~5 MB) and pre-compress text.
 const cache = {};
 const override = configOverride();
+let publicIndex = null;
 for (const [route, [file, type, cacheControl]] of Object.entries(ROUTES)) {
   let body;
   try {
-    body = route === '/config.js' && override ? Buffer.from(override.body) : fs.readFileSync(path.join(ROOT, file));
+    if (route === '/config.js' && override) body = Buffer.from(override.body);
+    else if (file === 'index.html') body = publicIndex || (publicIndex = Buffer.from(splitLessons(fs.readFileSync(path.join(ROOT, file), 'utf8'))));
+    else body = fs.readFileSync(path.join(ROOT, file));
   } catch (e) {
     console.error('Missing public file ' + file + ': ' + e.message);
     continue;
@@ -62,12 +89,21 @@ for (const [route, [file, type, cacheControl]] of Object.entries(ROUTES)) {
   };
 }
 
-// Supabase origin for the Content-Security-Policy connect-src.
-function supabaseOrigin() {
-  if (override) return new URL(override.cfg.supabaseUrl).origin;
-  const m = cache['/config.js'] && cache['/config.js'].body.toString().match(/supabaseUrl:\s*"([^"]+)"/);
-  try { return m ? new URL(m[1]).origin : ''; } catch { return ''; }
+// Supabase settings from the environment override or config.js (evaluated in a sandbox).
+function readConfig() {
+  if (override) return override.cfg;
+  try {
+    const sandbox = { window: {} };
+    vm.runInNewContext(cache['/config.js'].body.toString(), sandbox, { timeout: 500 });
+    return sandbox.window.HKW_CONFIG || {};
+  } catch { return {}; }
 }
+const CONFIG = readConfig();
+function supabaseOrigin() {
+  try { return CONFIG.supabaseUrl ? new URL(CONFIG.supabaseUrl).origin : ''; } catch { return ''; }
+}
+// Where the server checks members (tests point this at a local mock).
+const SUPABASE_SERVER_URL = (process.env.HKW_SUPABASE_SERVER_URL || CONFIG.supabaseUrl || '').replace(/\/$/, '');
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
@@ -96,6 +132,51 @@ function send(res, status, headers, body, method) {
   res.end(method === 'HEAD' ? undefined : body);
 }
 
+/* ---------- GET /api/lesson?key=... ---------- */
+const memberCache = new Map();   // token hash -> { profile, until }
+const hits = new Map();          // client ip -> { n, reset }
+function json(res, status, obj) {
+  return send(res, status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store' }, JSON.stringify(obj), 'GET');
+}
+function rateLimited(ip) {
+  const now = Date.now(), h = hits.get(ip);
+  if (!h || h.reset < now) { hits.set(ip, { n: 1, reset: now + 60000 }); if (hits.size > 5000) hits.clear(); return false; }
+  return ++h.n > 120;
+}
+async function memberProfile(token) {
+  const id = crypto.createHash('sha256').update(token).digest('base64url');
+  const hit = memberCache.get(id);
+  if (hit && hit.until > Date.now()) return hit.profile;
+  const r = await fetch(SUPABASE_SERVER_URL + '/rest/v1/profiles?select=plan,plan_expires_at', {
+    headers: { apikey: CONFIG.supabaseKey, Authorization: 'Bearer ' + token, Accept: 'application/json' },
+    signal: AbortSignal.timeout(6000),
+  });
+  if (r.status === 401 || r.status === 403) return null;
+  if (!r.ok) throw new Error('Supabase returned ' + r.status);
+  const rows = await r.json();
+  // Row Level Security returns her own row only when she is signed in with two-step verification.
+  const profile = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  if (memberCache.size > 2000) memberCache.clear();
+  memberCache.set(id, { profile, until: Date.now() + 60000 });
+  return profile;
+}
+async function lessonApi(req, res, url) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  if (rateLimited(ip)) return json(res, 429, { error: 'rate_limited' });
+  const key = url.searchParams.get('key') || '';
+  if (!LESSON_KEY.test(key) || !LESSONS[key]) return json(res, 404, { error: 'not_found' });
+  const m = /^Bearer ([\w.-]{20,4096})$/.exec(String(req.headers.authorization || ''));
+  if (!m) return json(res, 401, { error: 'sign_in_required' });
+  if (!SUPABASE_SERVER_URL || !CONFIG.supabaseKey) return json(res, 503, { error: 'not_configured' });
+  let profile;
+  try { profile = await memberProfile(m[1]); } catch (e) { console.error('lesson check failed: ' + e.message); return json(res, 503, { error: 'unavailable' }); }
+  if (!profile) return json(res, 401, { error: 'sign_in_required' });
+  const active = !profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date();
+  const premium = active && profile.plan && profile.plan !== 'complimentary';
+  if (!FREE_LESSONS.has(key) && !premium) return json(res, 403, { error: 'premium_required' });
+  return json(res, 200, { key, lesson: LESSONS[key] });
+}
+
 const server = http.createServer((req, res) => {
   try {
     const method = req.method || 'GET';
@@ -111,6 +192,7 @@ const server = http.createServer((req, res) => {
         started,
         worker: null,
         config: override ? 'environment' : 'config.js',
+        lessons: Object.keys(LESSONS).length,
         missing: [...new Set(Object.entries(ROUTES).filter(([k]) => !cache[k]).map(([, v]) => v[0]))],
       }), method);
     }
@@ -124,6 +206,12 @@ const server = http.createServer((req, res) => {
       if (proto === 'http' || wantHost !== host) {
         return send(res, 301, { Location: 'https://' + wantHost + url.pathname + url.search }, '', method);
       }
+    }
+
+    if (url.pathname === '/api/lesson') {
+      if (method !== 'GET') return send(res, 405, { Allow: 'GET', 'Content-Type': 'text/plain' }, 'Method not allowed', method);
+      lessonApi(req, res, url).catch(e => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'server_error' }); });
+      return;
     }
 
     if (method !== 'GET' && method !== 'HEAD') {

@@ -15,7 +15,7 @@ Last reviewed November 16, 2026. Re-run this review after any schema, sign-in, o
 | `app_settings`, `beta_allowlist`, `promo_codes`, `promo_attempts` | None | None (dashboard or service role only) |
 
 - **Two-step verification is enforced by the database.** Restrictive policies require `aal2` on member tables, so a password alone can't read anything.
-- **Account creation is gated** by `beta_allowlist` while `app_settings.beta_gate` is on (a trigger on `auth.users`).
+- **Account creation:** sign-up has been open to everyone since November 16, 2026 (`app_settings.beta_gate = false`). Setting it back to `true` limits new accounts to emails in `beta_allowlist`.
 - **Invitation codes** are validated in the database, and a member gets 10 attempts per hour.
 - **Public form rate limits:** 3 sign-ups and 5 Contact Us messages per email per hour, and 100 submissions in total per 10 minutes.
 - **Size limits:** profile text fields are capped, and `member_state` is limited to 200 KB.
@@ -26,6 +26,18 @@ Last reviewed November 16, 2026. Re-run this review after any schema, sign-in, o
 Migrations: `supabase/migrations/`. Check with the Supabase security advisor. Its remaining notes are intentional:
 - "RLS enabled, no policy" on the admin-only tables (no public access is the point).
 - "Signed-in users can execute" for `redeem_invite` and `delete_my_account`.
+
+## Lessons
+
+- **Lesson text is kept off the live page.** It sits between `HKW-CONTENT` markers in `index.html`, and `server.js` strips those blocks before sending the page.
+- **Members fetch lessons one at a time** from `GET /api/lesson?key=…`, using their Supabase access token. The server asks Supabase for her profile with that token: Row Level Security returns it only to the signed-in member with two-step verification. The server then checks her plan.
+  - Seed lessons 1–3 are free for every member.
+  - All other lessons need an active paid or gifted plan.
+  - Expired plans are refused.
+  - The API is rate-limited (120 requests per minute per visitor), sends no-store headers, and needs no secret keys on the server.
+- **`npm run build` fails** if lesson text appears outside the markers, or fewer than 40 lessons can be read.
+- **Hostinger pull-request preview addresses** run without sign-in, so they show lesson outlines only. The claude.ai preview and the tests use the full file.
+- **The lesson sources** (`lessons/*.py`) and the repository stay private.
 
 ## App and server
 
@@ -43,8 +55,7 @@ Migrations: `supabase/migrations/`. Check with the Supabase security advisor. It
 
 ## Open items (in priority order)
 
-1. **The full curriculum ships inside `index.html`.** Anyone can download every lesson, including Premium tiers, without an account. Tier locks are only in the browser.
-   - **Fix:** move the lesson content into a Supabase table with RLS by plan, and load it after sign-in. This is the most important remaining item before public launch.
+1. **Other content is still public in `index.html`:** the Knowledge Base articles, the case study, the tool explanations, and the credit guides. Lessons are now protected (see "Lessons" above). Move other Premium content behind the same lesson API if it should be members-only.
 2. **CSP allows inline scripts,** because the app is one HTML file with an inline script. Escaping limits the risk.
    - **Fix:** move the script into its own file, then remove `'unsafe-inline'`.
 3. **Supabase dashboard settings** that can't be changed from code:
@@ -54,6 +65,5 @@ Migrations: `supabase/migrations/`. Check with the Supabase security advisor. It
    - **Sessions** (Pro plan): consider an inactivity timeout, e.g. 7 days.
    - **Custom SMTP:** required, and gives you SPF/DKIM/DMARC on your domain.
    - **Backups:** turn on point-in-time recovery before real member data accumulates.
-4. **The beta-gate message reveals** whether an email is on the tester list. This is low risk during the beta, and goes away when the gate is turned off.
 5. **GitHub:** keep the repository private, protect `main` (require the CI check), and turn on secret scanning.
 6. **Privacy policy:** confirm it describes Supabase (data stored in the U.S.), Hostinger, account deletion, and retention, before launch.

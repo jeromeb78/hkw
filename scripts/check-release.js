@@ -17,5 +17,15 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 if (!html.includes('/*HKW-LESSONS-START*/') || !html.includes('<script src="config.js"></script>') || !html.includes('<script src="auth.js"></script>')) {
   console.error('index.html is missing the lessons block or the config.js tag'); ok = false;
 }
+// Lesson text must sit inside HKW-CONTENT markers so server.js can keep it off the public page.
+const starts = (html.match(/\/\*HKW-CONTENT-START\*\//g) || []).length, ends = (html.match(/\/\*HKW-CONTENT-END\*\//g) || []).length;
+let lessonCount = 0;
+try {
+  const code = (html.match(/\/\*HKW-CONTENT-START\*\/[\s\S]*?\/\*HKW-CONTENT-END\*\//g) || []).join(';\n');
+  lessonCount = Object.keys(require('vm').runInNewContext('const LESSONS={};' + code + ';LESSONS', {}, { timeout: 2000 })).length;
+} catch (e) { console.error('lesson blocks do not run: ' + e.message); }
+const stripped = html.replace(/\/\*HKW-CONTENT-START\*\/[\s\S]*?\/\*HKW-CONTENT-END\*\//g, '');
+if (!starts || starts !== ends || lessonCount < 40) { console.error('lesson markers broken: ' + starts + ' starts, ' + ends + ' ends, ' + lessonCount + ' lessons'); ok = false; }
+if (/Owner or steward\?|"quiz": \[/.test(stripped)) { console.error('lesson text found outside the HKW-CONTENT markers'); ok = false; }
 if (!ok) process.exit(1);
 console.log('release check passed: ' + files.join(', '));
