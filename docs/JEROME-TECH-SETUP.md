@@ -54,7 +54,7 @@ App memberships (Premium, Circle, VIP, My Sister's Keeper)  →  Stripe inside t
 - [ ] Matching social handles
 - [ ] GoHighLevel: Her Kingdom Wealth sub-account; sending domain authenticated (SPF, DKIM, DMARC)
 - [ ] GoHighLevel phone: 214 calling line, 214 texting line, A2P 10DLC registration, Voice Integrity; 855 port request if supported
-- [x] Supabase project "HKW" created November 15, 2026; sign-in with required two-step verification built (finish the dashboard steps in `docs/DEPLOY-HOSTINGER.md` → Sign-in)
+- [x] Supabase project "HKW" created November 15, 2026; sign-in built, with optional two-step verification in Account settings (finish the dashboard steps in `docs/DEPLOY-HOSTINGER.md` → Sign-in)
 - [ ] Hostinger Node.js app connected to the GitHub repo and the domain
 - [ ] Stripe (app subscriptions, coupons) — under the correct legal entity
 - [ ] GitHub repository for the app code

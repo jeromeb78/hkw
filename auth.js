@@ -3,8 +3,8 @@
  * Loaded after the app script. It does nothing unless the page runs on a host listed in
  * config.js → hosts, so the claude.ai preview, local file:// runs and the jsdom tests are unchanged.
  *
- * Flow: email + password → email code (6–10 digits, as Supabase sends it) or the link → two-step verification with an
- * authenticator app (required) → the member's data loads, and every change saves automatically.
+ * Flow: email + password → email code (6–10 digits, as Supabase sends it) or the link → (optional) two-step verification with an
+ * authenticator app, if she turned it on in Account settings → the member's data loads, and every change saves automatically.
  *
  * Never stored or sent: the safety question answer, the Safety Exit setting, the credit letter text,
  * passwords (held in memory only until Supabase receives them).
@@ -21,7 +21,7 @@
   var esc = app.esc;
   var LIB = 'vendor/supabase-2.118.0.js';
   var PUBLIC = ['landing', 'signup', 'auth', 'help', 'exit'];
-  var STEPS = ['loading', 'signin', 'verify', 'enroll', 'mfa', 'forgot', 'reset', 'newpass', 'delete', 'unavailable'];
+  var STEPS = ['loading', 'signin', 'verify', 'enroll', 'mfa', 'mfaoff', 'forgot', 'reset', 'newpass', 'delete', 'unavailable'];
   // Member choices saved in member_state.state (plus calculator inputs). Safety settings stay on the device.
   var STATE_KEYS = ['why', 'qa', 'placed', 'acts', 'j', 'jSample', 'lq', 'coach', 'acct', 'ms'];
   var LESSON_RE = /^(seed|sower|steward|kingdom)-\d$/;
@@ -83,23 +83,21 @@
     return sb.auth.mfa.getAuthenticatorAssuranceLevel().then(function (r) {
       if (r.error) throw r.error;
       var aal = r.data;
-      if (aal.currentLevel === 'aal2') {
-        if (st.invited) return show('newpass');
-        if (st.recovery) {
-          if (!st.newPw) return show('newpass');
-          return setPassword(st.newPw).then(function (ok) { if (ok) return A.loaded ? null : load(); });
-        }
-        return A.loaded ? null : load();
-      }
-      if (aal.nextLevel === 'aal2') {  // has a verified authenticator: ask for a code
+      A.mfa = aal.nextLevel === 'aal2';  // she has turned on two-step verification
+      if (aal.currentLevel !== 'aal2' && aal.nextLevel === 'aal2') {  // turned on: ask for her authenticator code
         return sb.auth.mfa.listFactors().then(function (f) {
           if (f.error) throw f.error;
           var v = (f.data.totp || []).filter(function (x) { return x.status === 'verified'; })[0];
           st.factorId = v.id; st.err = st.err || ''; show('mfa');
         });
       }
-      if (st.step === 'enroll' && st.factorId) return show('enroll');
-      return startEnroll();
+      // Two-step verification is optional: without it, the password session is enough.
+      if (st.invited) return show('newpass');
+      if (st.recovery) {
+        if (!st.newPw) return show('newpass');
+        return setPassword(st.newPw).then(function (ok) { if (ok) return A.loaded ? null : load(); });
+      }
+      return A.loaded ? null : load();
     });
   }
 
@@ -316,7 +314,7 @@
     }).then(function (r) {
       if (r.error) throw r.error;
       st.pendingSignup = true;
-      if (!r.data.session) show('verify');  // with a session, onAuthStateChange continues to two-step setup
+      if (!r.data.session) show('verify');  // with a session, onAuthStateChange loads her account
     }).catch(function (e) {
       S.errs = { auth: friendly(e) };
       app.render();
@@ -358,11 +356,15 @@
       .then(function () { if (S.view === 'lesson') app.render(); });
   }
 
+  A.mfaLabel = function () { return A.mfa ? 'On' : 'Off'; };
   A.accountCard = function () {
     if (!A.loaded) return '';
-    return '<div class="card stack-s"><p class="eyebrow">Sign-in</p>' +
+    return '<div class="card stack-s"><p class="eyebrow">Account settings</p>' +
       '<div class="kv"><span>Email</span><b>' + esc(A.user.email || '') + '</b></div>' +
-      '<div class="kv"><span>Two-step verification</span><b>On</b></div>' +
+      '<div class="kv"><span>Two-step verification</span><b>' + (A.mfa ? 'On' : 'Off') + '</b></div>' +
+      (A.mfa ? '<button class="btn ghost inline" data-auth="mfa-off">Turn off two-step verification</button>'
+        : '<p class="small muted">Optional. Adds a code from an authenticator app each time you sign in, so only you can open your account.</p>' +
+          '<button class="btn ghost inline" data-auth="mfa-on">Turn on two-step verification</button>') +
       '<div class="kv"><span>This device</span><b>' + (keep() ? 'Stays signed in' : 'Signs out when closed') + '</b></div>' +
       '<button class="btn ghost inline" data-auth="changepw">Change password</button>' +
       '<button class="link" style="align-self:flex-start" data-auth="delete">Delete my account</button></div>';
@@ -422,20 +424,25 @@
         '<p class="fine">Already have an account with this email? <button class="link" type="button" data-auth="signin">Sign in instead</button>.</p></div>' + HELP + '</form>';
     } else if (s === 'enroll') {
       h = '<form id="auth-enroll" class="stack" novalidate>' +
-        head('Two-step verification', 'Protect Your Account', 'Your account uses a second step at sign-in, so only you can open it. It takes about a minute.') + notes() +
+        head('Account settings', 'Turn On Two-Step Verification', 'Add a second step at sign-in, so only you can open your account, even if someone learns your password. It takes about a minute.') + notes() +
         '<div class="gcard stack-s"><p class="small"><b>1.</b> Open an authenticator app on your phone: Google Authenticator, Microsoft Authenticator, Authy, or the iPhone Passwords app.</p>' +
         '<p class="small"><b>2.</b> Scan this code, or type the setup key.</p>' +
         (st.qr ? '<div class="center" style="background:#fff;border-radius:14px;padding:12px;align-self:center"><img src="' + esc(st.qr) + '" width="180" height="180" alt="QR code for your authenticator app"></div>' : '') +
         '<p class="small" style="word-break:break-all">Setup key: <b style="user-select:all">' + esc(st.secret || '') + '</b></p>' +
         '<p class="small"><b>3.</b> Enter the 6-digit code the app shows.</p>' + field('code', '6-digit code', 'text', CODE) +
         '<button class="btn" type="submit">Turn On Two-Step Verification</button>' +
-        '<button class="link" type="button" data-auth="signout">Sign out</button></div>' + HELP + '</form>';
+        '<button class="link" type="button" data-jump="me">Cancel</button></div>' + HELP + '</form>';
+    } else if (s === 'mfaoff' && A.loaded) {
+      h = '<form id="auth-mfaoff" class="stack" novalidate>' + head('Account settings', 'Turn Off Two-Step Verification',
+        'You will sign in with your email and password only. Your authenticator app will no longer be asked for. You can turn it back on at any time.') + notes() +
+        '<div class="gcard stack-s"><button class="btn" type="submit">Turn Off Two-Step Verification</button>' +
+        '<button class="link" type="button" data-jump="me">Keep it on</button></div></form>';
     } else if (s === 'mfa') {
       h = '<form id="auth-mfa" class="stack" novalidate>' + head('Two-step verification', 'Enter Your Code', 'Open your authenticator app and enter the 6-digit code for Her Kingdom Wealth™.') + notes() +
         '<div class="gcard stack-s">' + field('code', '6-digit code', 'text', CODE + ' autofocus') +
         '<button class="btn" type="submit">Verify</button>' +
         '<button class="link" type="button" data-auth="signout">Sign out</button></div>' +
-        '<p class="fine">Lost your phone? Email Member Care at support@herkingdomwealth.com from the address on your account, and we will help you set up two-step verification again.</p></form>';
+        '<p class="fine">Lost your phone? Email Member Care at support@herkingdomwealth.com from the address on your account, and we will help you turn off two-step verification so you can sign in and set it up again.</p></form>';
     } else if (s === 'forgot') {
       h = '<form id="auth-forgot" class="stack" novalidate>' + head('Reset your password', 'Forgot Your Password?', 'Enter your email and we will send you a code to set a new password.') + notes() +
         '<div class="gcard stack-s">' + field('email', 'Email', 'email', 'autocomplete="email" value="' + esc(st.email) + '"') +
@@ -457,7 +464,7 @@
         '<p class="fine">A paid membership is managed separately: cancel it under Membership first so you are not charged again.</p></form>';
     } else if (s === 'newpass') {
       h = '<form id="auth-newpass" class="stack" novalidate>' +
-        (st.invited ? head('Your invitation', 'Create Your Account', 'Welcome! Add your name and choose a password. You will use them with your authenticator app each time you sign in.')
+        (st.invited ? head('Your invitation', 'Create Your Account', 'Welcome! Add your name and choose a password. You will use them to sign in. You can add two-step verification later in Account settings.')
           : head('Your password', 'Set a New Password')) + notes() +
         '<div class="gcard stack-s">' +
         (st.invited ? '<div class="grid2">' + field('first_name', 'First name', 'text', 'autocomplete="given-name"') + field('last_name', 'Last name', 'text', 'autocomplete="family-name"') + '</div>' : '') +
@@ -497,7 +504,7 @@
             if (/not confirmed/i.test(r.error.message)) { st.msg = 'Please confirm your email first. Enter the code we sent, or send a new one.'; return show('verify'); }
             throw r.error;
           }
-          show('loading');  // onAuthStateChange continues to two-step verification
+          show('loading');  // onAuthStateChange continues (asks for her authenticator code only if two-step is on)
         }).catch(function (x) { fail(x, 'signin'); });
     }
     if (id === 'verify') {
@@ -515,10 +522,20 @@
       return sb.auth.mfa.challengeAndVerify({ factorId: st.factorId, code: t })
         .then(function (r) {
           if (r.error) throw r.error;
-          if (id === 'enroll') app.toast('Two-step verification is on.');
           st.qr = st.secret = null;
+          if (id === 'enroll') { A.mfa = true; app.toast('Two-step verification is on. You will enter a code from your app each time you sign in.'); return app.go('app', { tab: 'me' }); }
           show('loading');  // MFA_CHALLENGE_VERIFIED → load
         }).catch(function (x) { fail(x, id); });
+    }
+    if (id === 'mfaoff') {
+      busy(form);
+      return sb.auth.mfa.listFactors().then(function (f) {
+        if (f.error) throw f.error;
+        return Promise.all((f.data.all || []).filter(function (x) { return x.factor_type === 'totp'; })
+          .map(function (x) { return sb.auth.mfa.unenroll({ factorId: x.id }).then(function (u) { if (u.error) throw u.error; }); }));
+      }).then(function () { return sb.auth.refreshSession(); }).then(function () {
+        A.mfa = false; app.toast('Two-step verification is off.'); app.go('app', { tab: 'me' });
+      }).catch(function (x) { fail(x, 'mfaoff'); });
     }
     if (id === 'forgot') {
       st.email = (d.email || '').trim();
@@ -533,7 +550,7 @@
       if (rc.length < 6 || rc.length > 10) return fail({ message: 'Enter the code from the email (all of its digits).' });
       if (pe) return fail({ message: pe });
       busy(form);
-      st.recovery = true; st.newPw = d.password;  // saved after two-step verification
+      st.recovery = true; st.newPw = d.password;  // saved after her authenticator code, if two-step is on
       return sb.auth.verifyOtp({ email: st.email, token: rc, type: 'recovery' })
         .then(function (r) { if (r.error) throw r.error; show('loading'); })
         .catch(function (x) { st.recovery = false; st.newPw = null; fail(x, 'reset'); });
@@ -590,6 +607,8 @@
     else if (a === 'changepw') { st.recovery = false; show('newpass'); }
     else if (a === 'signout') A.signOut();
     else if (a === 'delete') show('delete');
+    else if (a === 'mfa-on') { st.factorId = null; queue(function () { return startEnroll(); }); }
+    else if (a === 'mfa-off') show('mfaoff');
     else if (a === 'lesson-retry') { delete lessonStatus[b.dataset.key]; app.render(); }
     else if (a === 'resend') {
       ready.then(function () { return sb.auth.resend({ type: 'signup', email: st.email, options: { emailRedirectTo: location.origin + '/' } }); })

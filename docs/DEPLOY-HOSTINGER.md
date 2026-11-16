@@ -71,10 +71,10 @@ On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accou
 
 1. **Sign up:** the existing form, plus a password (10 or more characters) and "Keep me signed in on this device" (off by default, for shared phones).
 2. **Confirm email:** she enters the code from the email (6 to 10 digits, depending on the Supabase setting; new projects send 8), or taps the link.
-3. **Two-step verification (required):** she scans a QR code with an authenticator app and enters a code. Member data can't be read or written without it, and the database enforces this too.
+3. **Two-step verification (optional):** a member can turn it on in **You → Account settings**. She scans a QR code with an authenticator app and enters a code; after that, every sign-in asks for a code from the app, and the database refuses her data without it. She can turn it off again in the same place.
 4. **Onboarding and progress save automatically:** profile, tier, season, risk band, lesson completions, Why card, quiz answers, action steps, Wealth Journey, Money Story, calculator inputs, and notification settings. They reload at every sign-in.
 5. **Welcome and onboarding:** new members see the Welcome page (a note from Rev. Dr. Banks, Matthew 25:21, and the three steps ahead), then Your Why, the placement quiz, and the investor profile. Every sign-in opens the Welcome page. Returning members see "Welcome back" with today's blessing, where they left off, and a button to continue: to the onboarding step they skipped, or to their dashboard.
-6. **Sign in:** at herkingdomwealth.com/login (sign-up is at /signup), she enters her email, password, and then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
+6. **Sign in:** at herkingdomwealth.com/login (sign-up is at /signup), she enters her email and password, plus her authenticator code if she turned on two-step verification. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
 
 **Never saved:** the safety question answer, the Safety Exit setting, the credit letter text, or passwords (Supabase stores only a hash).
 
@@ -123,11 +123,11 @@ insert into public.beta_allowlist (email, note) values
   ('tester2@example.com', 'beta-tester');
 ```
 
-- To invite someone yourself: add her email to `beta_allowlist` first, then go to Authentication → Users → Invite user. The invitation email (`emails/auth/invite.html`) opens the app, where she sets up two-step verification, adds her name, creates a password, and lands on the welcome page.
+- To invite someone yourself: add her email to `beta_allowlist` first, then go to Authentication → Users → Invite user. The invitation email (`emails/auth/invite.html`) opens the app, where she adds her name, creates a password, and lands on the welcome page.
 - At public launch, open sign-up to everyone: `update public.app_settings set beta_gate = false;`
 - Close or limit an invitation code: `update public.promo_codes set active = false where code = 'MYSISTERSKEEPER';`, or set `expires_at` / `max_redemptions`.
 - See who redeemed a code: `select * from public.redemptions;`
-- If a member loses her phone: Authentication → Users → her account → remove her MFA factor. She sets up two-step verification again at her next sign-in.
+- If a member loses her phone: Authentication → Users → her account → remove her MFA factor. She can then sign in with her password and turn two-step verification back on in Account settings.
 
 ## Still to build (see JEROME-TECH-SETUP.md)
 

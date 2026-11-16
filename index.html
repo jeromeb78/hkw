@@ -2129,7 +2129,7 @@ function vMe(){
   <button class="card tap stack-s" data-go="share"><span class="eyebrow">Pay it forward</span><h3>Share the Blessing</h3><span class="small muted">Your mother, sister, daughter, aunt, niece, or friend.</span></button>
   <button class="card tap stack-s" data-go="bless"><span class="eyebrow">Share and bless</span><h3>Bless a Sister</h3><span class="small muted">Give a gift membership, sponsor a sister, or support the mission.</span></button>
   <button class="card tap stack-s" data-go="involve"><span class="eyebrow">Get involved</span><h3>Volunteer, Book, or Partner</h3><span class="small muted">Serve with your gifts, invite Rev. Dr. Banks, or partner with us.</span></button>
-  <button class="card tap stack-s" data-go="security"><span class="eyebrow lock">${LOCK}Your information</span><h3>Privacy &amp; Security</h3><span class="small muted">Two-step verification: On</span></button>
+  <button class="card tap stack-s" data-go="security"><span class="eyebrow lock">${LOCK}Your information</span><h3>Privacy &amp; Security</h3><span class="small muted">Two-step verification: ${window.hkwAuth&&hkwAuth.on&&hkwAuth.loaded?hkwAuth.mfaLabel():'On'}</span></button>
   ${window.hkwAuth&&hkwAuth.on?hkwAuth.accountCard():''}
   <div class="card"><p class="eyebrow" style="margin-bottom:6px">Safety settings</p>
    ${sw('safetyExit','Safety Exit','Off by default. When on, a small Exit button appears at the top of every screen. One tap replaces the app with an everyday page if someone walks in.')}

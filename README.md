@@ -22,7 +22,7 @@
 | --- | --- |
 | `index.html` | The complete app: one self-contained HTML file (markup, styles, and script) |
 | `config.js` | Public runtime config: Supabase URL, publishable key, and hosts allowed to send form data |
-| `auth.js`, `vendor/` | Sign-in (Supabase Auth with required two-step verification) and automatic saving of member progress, active only on the live site |
+| `auth.js`, `vendor/` | Sign-in (Supabase Auth, with optional two-step verification in Account settings) and automatic saving of member progress, active only on the live site |
 | `lessons/` | Python sources for the 37 deep lessons (`seed.py`, `sower.py`, `steward.py`, `kingdom.py`) and `build.py`, which writes them into `index.html` |
 | `emails/` | Email templates: welcome, newsletter (The Kingdom Insider), tier-up, and IPO-week alert. `emails/auth/` holds the Supabase sign-in emails, applied with `scripts/apply-auth-config.js` |
 | `docs/JEROME-TECH-SETUP.md` | Technical setup: GoHighLevel, hosting, beta sign-up, analytics, automatic-renewal workflows, compliance |
