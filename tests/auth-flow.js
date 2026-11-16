@@ -79,6 +79,12 @@ async function page(browser, db, errs) {
   return pg;
 }
 
+async function signIn(pg) {
+  await pg.fill('#email', 'grace@example.com'); await pg.fill('#password', 'correct horse battery');
+  await pg.click('#auth-signin [type=submit]');
+  await until(pg, () => /Enter Your Code/.test(document.querySelector('h1').textContent));
+  await pg.fill('#code', '654321'); await pg.click('#auth-mfa [type=submit]');
+}
 const assert = (c, m) => { if (!c) throw new Error('ASSERT: ' + m); console.log('ok -', m); };
 const h1 = pg => pg.$eval('h1', e => e.textContent.trim());
 const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
@@ -125,10 +131,10 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await until(pg, () => /didn.t work/.test(document.body.textContent));
     assert(true, 'wrong authenticator code is rejected');
     await pg.fill('#code', '654321'); await pg.click('#auth-enroll [type=submit]');
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'why');
-    assert(true, 'after two-step setup, the new member starts onboarding');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome');
+    assert(/Welcome Home/.test(await h1(pg)) && /MATTHEW 25:21/.test(await pg.textContent('#root')), 'after two-step setup, the new member sees the welcome page');
     assert(await pg.evaluate(() => window.__hkw.S.plan === 'premium' && window.__hkw.S.msk), "My Sister's Keeper plan comes from the server");
-    await pg.click('[data-act="closecheer"]');
+    await pg.click('[data-go="why"]');
     await pg.click('[data-val="Peace of mind"]');
     await pg.evaluate(() => { const S = window.__hkw.S; S.tier = 'sower'; S.done['seed-0'] = true; S.safe = 'no'; S.safetyExit = true; window.__hkw.render(); });
     await until(pg, () => true);
@@ -152,15 +158,32 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.click('#auth-signin [type=submit]');
     await until(pg, () => /don.t match/.test(document.body.textContent));
     assert(true, 'wrong password is rejected');
-    await pg.fill('#email', 'grace@example.com'); await pg.fill('#password', 'correct horse battery');
-    await pg.click('#auth-signin [type=submit]');
-    await until(pg, () => /Enter Your Code/.test(document.querySelector('h1').textContent));
+    await signIn(pg);
     assert(true, 'returning member is asked for a two-step code');
-    await pg.fill('#code', '654321'); await pg.click('#auth-mfa [type=submit]');
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app');
-    const S = await pg.evaluate(() => { const S = window.__hkw.S; return { tier: S.tier, why: S.why.values, done: S.done, tab: S.tab }; });
-    assert(S.tier === 'sower' && S.why[0] === 'Legacy' && S.done['seed-0'] && S.tab === 'home', 'saved progress reloads at sign-in');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'archetype');
+    let S = await pg.evaluate(() => { const S = window.__hkw.S; return { tier: S.tier, why: S.why.values, done: S.done }; });
+    assert(S.tier === 'sower' && S.why[0] === 'Legacy' && S.done['seed-0'], 'saved progress reloads at sign-in');
+    assert(true, 'member who skipped her investor profile resumes there');
     assert(!db.log.some(l => /^(PATCH|POST) \/rest/.test(l)), 'loading does not write anything back');
+    await pg.click('[data-season="0"]'); await pg.click('[data-drop="1"]');
+    await pg.waitForTimeout(1800);
+    assert(db.profile.season && db.profile.risk_band, 'investor profile saved');
+    await pg.context().close();
+
+    /* --- Stopped before the placement quiz: resumes at the quiz --- */
+    const tier = db.profile.tier; db.profile.tier = null;
+    pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'quiz');
+    assert(true, 'member who chose her why but not the quiz resumes at the quiz');
+    await pg.context().close();
+    db.profile.tier = tier;
+
+    /* --- Onboarding complete: straight to the dashboard --- */
+    pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
+    assert(true, 'member who finished onboarding goes straight to her dashboard');
     await pg.context().close();
 
     /* --- Forgot password: email code, then two-step code, then the new password is saved --- */
@@ -176,6 +199,24 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.fill('#code', '654321'); await pg.click('#auth-mfa [type=submit]');
     await until(pg, () => window.hkwAuth.loaded);
     assert(db.newPassword === 'a brand new passphrase', 'password reset saves the new password after two-step verification');
+    await pg.context().close();
+
+    /* --- Invited from the dashboard: two-step code, then name and password, then the welcome page --- */
+    db.profile.first_name = null; db.profile.tier = null; db.state = null; db.newPassword = null;
+    pg = await page(browser, db, errs);
+    const tok = jwt('11111111-1111-4111-8111-111111111111', 'aal1');
+    await pg.goto(SITE + '/#access_token=' + tok + '&refresh_token=r&expires_in=3600&token_type=bearer&type=invite');
+    await until(pg, () => /Enter Your Code/.test(document.querySelector('h1').textContent));
+    await pg.fill('#code', '654321'); await pg.click('#auth-mfa [type=submit]');
+    await until(pg, () => /Create Your Account/.test(document.querySelector('h1').textContent));
+    await pg.fill('#password', 'invited passphrase!'); await pg.fill('#password2', 'invited passphrase!');
+    await pg.click('#auth-newpass [type=submit]');
+    await until(pg, () => /first name/.test(document.body.textContent));
+    await pg.fill('#first_name', 'Ruth'); await pg.fill('#password', 'invited passphrase!'); await pg.fill('#password2', 'invited passphrase!');
+    await pg.click('#auth-newpass [type=submit]');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome');
+    assert(db.newPassword === 'invited passphrase!' && db.profile.first_name === 'Ruth', 'invited member sets her name and password');
+    assert(/Welcome, Ruth/.test(await pg.textContent('#root')), 'invited member then sees the welcome page with her name');
     assert(errs.length === 0, 'no script or CSP errors: ' + JSON.stringify(errs));
     console.log('auth flow: all checks passed');
   } catch (e) {

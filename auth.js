@@ -27,7 +27,9 @@
   var LESSON_RE = /^(seed|sower|steward|kingdom)-\d$/;
 
   var st = (A.st = { step: 'signin', email: '', err: '', msg: '', factorId: null, qr: null, secret: null,
-    recovery: false, newPw: null, pendingSignup: false });
+    recovery: false, newPw: null, pendingSignup: false,
+    // Opened from a dashboard invitation email: she still needs a password and her name.
+    invited: /type=invite/.test(location.hash) });
   var sb = null;
 
   /* ---------- "Keep me signed in": localStorage only when chosen, otherwise this tab only ---------- */
@@ -77,11 +79,12 @@
   function route(session) {
     A.user = session ? session.user : null;
     if (!session) { A.loaded = false; if (S.view === 'auth' && st.step === 'loading') show('signin'); return; }
-    if (A.loaded && !st.recovery) return;
+    if (A.loaded && !st.recovery && !st.invited) return;
     return sb.auth.mfa.getAuthenticatorAssuranceLevel().then(function (r) {
       if (r.error) throw r.error;
       var aal = r.data;
       if (aal.currentLevel === 'aal2') {
+        if (st.invited) return show('newpass');
         if (st.recovery) {
           if (!st.newPw) return show('newpass');
           return setPassword(st.newPw).then(function (ok) { if (ok) return A.loaded ? null : load(); });
@@ -130,9 +133,14 @@
       apply(p, r[1].data || [], state);
       A.loaded = true; A.lastSaved = snapshot(); st.err = ''; st.msg = '';
       var fresh = st.pendingSignup || (!p.tier && !state);
+      var whyDone = state && state.why && state.why.values && state.why.values.length;
       st.pendingSignup = false;
       app.H.length = 0;
-      if (fresh) { app.cheer('welcome'); app.go('why'); } else { app.go('app', { tab: 'home' }); }
+      // New members see the welcome page; anyone who stopped partway resumes where she left off.
+      if (fresh) app.go('welcome');
+      else if (!p.tier) { S.qi = 0; S.qa = []; app.go(whyDone ? 'quiz' : 'why'); }
+      else if (!S.season || !S.band) app.go('archetype');
+      else app.go('app', { tab: 'home' });
     });
   }
 
@@ -361,11 +369,15 @@
         '<button class="btn" type="submit">Save New Password</button>' +
         '<button class="link" type="button" data-auth="forgot">Send a new code</button></div></form>';
     } else if (s === 'newpass') {
-      h = '<form id="auth-newpass" class="stack" novalidate>' + head('Your password', 'Set a New Password') + notes() +
-        '<div class="gcard stack-s">' + field('password', 'New password', 'password', 'autocomplete="new-password" minlength="10"') +
+      h = '<form id="auth-newpass" class="stack" novalidate>' +
+        (st.invited ? head('Your invitation', 'Create Your Account', 'Welcome! Add your name and choose a password. You will use them with your authenticator app each time you sign in.')
+          : head('Your password', 'Set a New Password')) + notes() +
+        '<div class="gcard stack-s">' +
+        (st.invited ? '<div class="grid2">' + field('first_name', 'First name', 'text', 'autocomplete="given-name"') + field('last_name', 'Last name', 'text', 'autocomplete="family-name"') + '</div>' : '') +
+        field('password', st.invited ? 'Create a password' : 'New password', 'password', 'autocomplete="new-password" minlength="10"') +
         field('password2', 'Confirm new password', 'password', 'autocomplete="new-password"') +
         '<span class="fine">At least 10 characters.</span>' +
-        '<button class="btn" type="submit">Save New Password</button>' +
+        '<button class="btn" type="submit">' + (st.invited ? 'Create My Account' : 'Save New Password') + '</button>' +
         (A.loaded ? '<button class="link" type="button" data-jump="me">Cancel</button>' : '') + '</div></form>';
     }
     return app.shell('<div class="stack">' + h + '</div>');
@@ -441,8 +453,18 @@
     }
     if (id === 'newpass') {
       var ne = pwError(d.password, d.password2);
+      if (st.invited && !(d.first_name || '').trim()) ne = 'Enter your first name.';
       if (ne) return fail({ message: ne });
       busy(form);
+      if (st.invited) {
+        return setPassword(d.password).then(function (ok) {
+          if (!ok) return;
+          st.invited = false; st.pendingSignup = true;
+          history.replaceState(null, '', location.pathname);
+          return sb.from('profiles').update({ first_name: d.first_name.trim().slice(0, 100), last_name: (d.last_name || '').trim().slice(0, 100) || null })
+            .eq('id', A.user.id).then(function () { return queue(function () { return load(); }); });
+        });
+      }
       return setPassword(d.password).then(function (ok) {
         if (!ok) return;
         if (A.loaded) app.go('app', { tab: 'me' }); else queue(function () { return load(); });
@@ -454,8 +476,8 @@
     return sb.auth.updateUser({ password: pw }).then(function (r) {
       st.newPw = null;
       if (r.error) { st.err = friendly(r.error); show('newpass'); return false; }
+      if (!st.invited) app.toast('Your password has been updated.');
       st.recovery = false;
-      app.toast('Your password has been updated.');
       return true;
     });
   }

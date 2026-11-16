@@ -72,7 +72,8 @@ On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accou
 2. **Confirm email:** she enters the 6-digit code from the email, or taps the link.
 3. **Two-step verification (required):** she scans a QR code with an authenticator app and enters a code. Member data can't be read or written without it, and the database enforces this too.
 4. **Onboarding and progress save automatically:** profile, tier, season, risk band, lesson completions, Why card, quiz answers, action steps, Wealth Journey, Money Story, calculator inputs, and notification settings. They reload at every sign-in.
-5. **Sign in:** email, password, then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
+5. **Welcome and onboarding:** new members see the Welcome page (a note from Rev. Dr. Banks, Matthew 25:21, and the three steps ahead), then Your Why, the placement quiz, and the investor profile. A member who stops partway resumes at the step she skipped the next time she signs in.
+6. **Sign in:** email, password, then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
 
 **Never saved:** the safety question answer, the Safety Exit setting, the credit letter text, or passwords (Supabase stores only a hash).
 
@@ -117,6 +118,7 @@ insert into public.beta_allowlist (email, note) values
   ('tester2@example.com', 'beta-tester');
 ```
 
+- To invite someone yourself: add her email to `beta_allowlist` first, then go to Authentication → Users → Invite user. The invitation email (`emails/auth/invite.html`) opens the app, where she sets up two-step verification, adds her name, creates a password, and lands on the welcome page.
 - At public launch, open sign-up to everyone: `update public.app_settings set beta_gate = false;`
 - Close or limit an invitation code: `update public.promo_codes set active = false where code = 'MYSISTERSKEEPER';`, or set `expires_at` / `max_redemptions`.
 - See who redeemed a code: `select * from public.redemptions;`

@@ -8,7 +8,7 @@ click('[data-explore="2"]');console.log('explore ->',d.querySelector('h1').textC
 click('[data-go="signup"]');type('#fn','Grace');type('#em','g@x.com');type('#ph','2145550123');type('#pc','MYSISTERSKEEPER');
 const c=d.querySelector('#c-disc');c.checked=true;c.dispatchEvent(new w.Event('change',{bubbles:true}));
 d.querySelector('#signup').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
-console.log('after signup ->',d.querySelector('h2').textContent);
+console.log('after signup ->',d.querySelector('h1').textContent);click('[data-go="why"]');console.log('why ->',d.querySelector('h2').textContent);
 click('[data-val="Peace of mind"]');click('[data-val="Independence"]');type('#why-text','Never be without options.');click('[data-act="why-next"]');
 for(let i=0;i<5;i++){click('[data-qa="0"]');click('[data-act="qnext"]')}
 click('[data-go="archetype"]');click('[data-season="2"]');click('[data-drop="1"]');click('[data-jump="home"]');
