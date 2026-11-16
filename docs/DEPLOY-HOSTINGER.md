@@ -73,8 +73,8 @@ On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accou
 2. **Confirm email:** she enters the code from the email (6 to 10 digits, depending on the Supabase setting; new projects send 8), or taps the link.
 3. **Two-step verification (required):** she scans a QR code with an authenticator app and enters a code. Member data can't be read or written without it, and the database enforces this too.
 4. **Onboarding and progress save automatically:** profile, tier, season, risk band, lesson completions, Why card, quiz answers, action steps, Wealth Journey, Money Story, calculator inputs, and notification settings. They reload at every sign-in.
-5. **Welcome and onboarding:** new members see the Welcome page (a note from Rev. Dr. Banks, Matthew 25:21, and the three steps ahead), then Your Why, the placement quiz, and the investor profile. A member who stops partway resumes at the step she skipped the next time she signs in.
-6. **Sign in:** email, password, then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
+5. **Welcome and onboarding:** new members see the Welcome page (a note from Rev. Dr. Banks, Matthew 25:21, and the three steps ahead), then Your Why, the placement quiz, and the investor profile. Every sign-in opens the Welcome page. Returning members see "Welcome back" with today's blessing, where they left off, and a button to continue: to the onboarding step they skipped, or to their dashboard.
+6. **Sign in:** at herkingdomwealth.com/login (sign-up is at /signup), she enters her email, password, and then the authenticator code. "Forgot your password?" sends a code, then asks for the authenticator code before the new password is saved.
 
 **Never saved:** the safety question answer, the Safety Exit setting, the credit letter text, or passwords (Supabase stores only a hash).
 

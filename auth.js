@@ -136,11 +136,13 @@
       var whyDone = state && state.why && state.why.values && state.why.values.length;
       st.pendingSignup = false;
       app.H.length = 0;
-      // New members see the welcome page; anyone who stopped partway resumes where she left off.
-      if (fresh) app.go('welcome');
-      else if (!p.tier) { S.qi = 0; S.qa = []; app.go(whyDone ? 'quiz' : 'why'); }
-      else if (!S.season || !S.band) app.go('archetype');
-      else app.go('app', { tab: 'home' });
+      // Every sign-in opens the Welcome page. New members start onboarding from there; returning
+      // members see "Welcome back" with a button to the step they skipped, or to their dashboard.
+      var resume = !p.tier ? (whyDone ? { go: 'quiz', label: 'Placement quiz' } : { go: 'why', label: 'Your why' })
+        : (!S.season || !S.band) ? { go: 'archetype', label: 'Your investor profile' } : null;
+      if (resume && resume.go === 'quiz') { S.qi = 0; S.qa = []; }
+      S.welcomeBack = !fresh; S.resume = fresh ? null : resume;
+      app.go('welcome');
     });
   }
 
@@ -620,6 +622,9 @@
     return m && m.length < 140 && !/[{}<>]/.test(m) ? m : 'Something went wrong. Please try again.';
   }
   A.friendly = friendly;
+
+  // Opened at /login (or /signin): start on the sign-in screen. A remembered session still goes straight in.
+  if (/^\/(login|signin)$/.test(app.startPath || '')) { st.step = 'signin'; S.view = 'auth'; }
 
   // The app drew its first screen before this file loaded: redraw with sign-in active.
   app.render();

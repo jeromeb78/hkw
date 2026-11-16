@@ -129,8 +129,25 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     db.profile.plan_expires_at = new Date(Date.now() + 864e5 * 365).toISOString();
 
 
-    /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
+    /* --- Page addresses: /signup and /login open those screens, and the address bar follows the screen --- */
     let pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/signup');
+    await until(pg, () => window.hkwAuth && /Begin Your Journey/.test(document.querySelector('h1').textContent));
+    assert(true, '/signup opens the sign-up form');
+    await pg.goto(SITE + '/login');
+    await until(pg, () => /Sign In/.test(document.querySelector('h1').textContent));
+    assert(true, '/login opens sign-in');
+    await pg.click('[data-go="signup"]');
+    await until(pg, () => location.pathname === '/signup');
+    assert(true, 'address bar shows /signup on the sign-up form');
+    await pg.goto(SITE + '/');
+    await pg.click('[data-auth="signin"]');
+    await until(pg, () => location.pathname === '/login');
+    assert(true, 'address bar shows /login on sign-in');
+    await pg.context().close();
+
+    /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
+    pg = await page(browser, db, errs);
     await pg.goto(SITE + '/');
     assert(!(await pg.$('.demo-strip')), 'preview strip hidden on the live site');
     await pg.click('[data-explore="1"]');
@@ -199,7 +216,10 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(true, 'wrong password is rejected');
     await signIn(pg);
     assert(true, 'returning member is asked for a two-step code');
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'archetype');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    assert(/Welcome back, Grace/.test(await pg.textContent('#root')) && /Continue: Your investor profile/.test(await pg.textContent('#root')), 'sign-in opens the Welcome back page');
+    await pg.click('[data-go="archetype"]');
+    await until(pg, () => window.__hkw.S.view === 'archetype');
     let S = await pg.evaluate(() => { const S = window.__hkw.S; return { tier: S.tier, why: S.why.values, done: S.done }; });
     assert(S.tier === 'sower' && S.why[0] === 'Legacy' && S.done['seed-0'], 'saved progress reloads at sign-in');
     assert(true, 'member who skipped her investor profile resumes there');
@@ -213,7 +233,9 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     const tier = db.profile.tier; db.profile.tier = null;
     pg = await page(browser, db, errs);
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'quiz');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    await pg.click('[data-go="quiz"]');
+    await until(pg, () => window.__hkw.S.view === 'quiz');
     assert(true, 'member who chose her why but not the quiz resumes at the quiz');
     await pg.context().close();
     db.profile.tier = tier;
@@ -225,8 +247,12 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     pg = await page(browser, db, errs);
     pg.on('dialog', d => { errs.push('dialog opened'); d.dismiss(); });
     await pg.goto(SITE + '/'); await pg.click('[data-auth="signin"]'); await signIn(pg);
-    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
-    assert(true, 'member who finished onboarding goes straight to her dashboard');
+    await until(pg, () => window.hkwAuth.loaded && window.__hkw.S.view === 'welcome' && window.__hkw.S.welcomeBack);
+    assert(/Continue to My Dashboard/.test(await pg.textContent('#root')) && /Lessons completed/.test(await pg.textContent('#root')), 'member who finished onboarding sees Welcome back with her progress');
+    await pg.click('#root [data-jump="home"].btn');
+    await until(pg, () => window.__hkw.S.view === 'app' && window.__hkw.S.tab === 'home');
+    assert(true, 'Continue takes her to her dashboard');
+    assert(new URL(pg.url()).pathname === '/', 'address bar returns to / once she is signed in');
     await pg.evaluate(() => window.__hkw.go('lesson', { lesson: [2, 3] }));
     await until(pg, () => document.querySelectorAll('section.card').length > 2);
     assert(await pg.evaluate(() => !!window.__hkw.LESSONS['steward-3']), 'Premium lesson loads from the server after sign-in');
