@@ -29,6 +29,7 @@ function mockSupabase(db) {
     const body = req.postData() ? JSON.parse(req.postData()) : null;
     db.log.push(m + ' ' + p + url.search + (body ? ' ' + JSON.stringify(body) : ''));
     if (p === '/auth/v1/signup') {
+      if (body.email === 'slow@example.com') { await new Promise(r => setTimeout(r, 1500)); return send(504, {}); }
       if (body.email === 'blocked@example.com') return send(500, { code: 500, error_code: 'unexpected_failure', msg: 'Database error saving new user' });
       db.signupMeta = body.data; return send(200, { ...user(), confirmation_sent_at: new Date().toISOString() });
     }
@@ -140,6 +141,13 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
       await pg.fill('#pc', 'MYSISTERSKEEPER'); await pg.fill('#pw', 'correct horse battery'); await pg.fill('#pw2', 'correct horse battery');
       await pg.check('#c-disc');
     };
+    await fill('grace@strategyvii.xom'); await pg.click('#signup [type=submit]');
+    assert(/Did you mean grace@strategyvii\.com\?/.test(await pg.textContent('#root')) && !db.log.some(l => /signup/.test(l)), 'email typo is caught before anything is sent');
+    await pg.fill('#em', 'slow@example.com'); await pg.fill('#pw', 'correct horse battery'); await pg.fill('#pw2', 'correct horse battery');
+    await pg.click('#signup [type=submit]');
+    assert(/Creating your account/.test(await pg.textContent('#signup [type=submit]')), 'button shows progress while the account is created');
+    await until(pg, () => !!document.querySelector('#signup-err'));
+    assert(/couldn.t send your confirmation email/.test(await pg.textContent('#signup-err')), 'email-sending failure explains what happened, next to the button');
     await fill('blocked@example.com');
     await pg.fill('#pw2', 'mismatch'); await pg.click('#signup [type=submit]');
     assert(/do not match/.test(await pg.textContent('.err')), 'password mismatch caught before sending');

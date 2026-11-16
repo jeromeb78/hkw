@@ -1280,6 +1280,12 @@ const tierIdx=()=>TIERS.findIndex(t=>t.id===S.tier);
 const premium=()=>S.plan!=='complimentary';
 const first=()=>S.name?esc(S.name.split(' ')[0]):'Grace';
 const codeOk=v=>v.toUpperCase().replace(/[\s'’]/g,'')==='MYSISTERSKEEPER';
+/* Common email typos ("strategyvii.xom", "gmial.com"): returns the likely intended address, or '' */
+const emailTypo=e=>{const m=/^([^@\s]+)@([^@\s]+)\.([a-z]+)$/i.exec(e);if(!m)return'';
+ const d=m[2].toLowerCase(),t=m[3].toLowerCase();
+ const T={xom:'com',cpm:'com',vom:'com',con:'com',cmo:'com',ocm:'com',comm:'com',coom:'com',clm:'com',nett:'net',ogr:'org'};
+ const D={gmial:'gmail',gmai:'gmail',gamil:'gmail',gnail:'gmail',gmaill:'gmail',yaho:'yahoo',yahooo:'yahoo',hotmial:'hotmail',hotmal:'hotmail',outlok:'outlook',iclod:'icloud',icoud:'icloud'};
+ const t2=T[t]||t,d2=D[d]||d;return t2!==t||d2!==d?m[1]+'@'+d2+'.'+t2:''};
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TM='<sup class="tm">™</sup>';
 const FOOT='<p class="fine" style="font-size:.64rem">* Rev. Dr. Cherie Banks may receive compensation if you open an account through a paid partner link. This does not affect our educational content or how partners are described.</p>';
@@ -1454,8 +1460,9 @@ function vSignup(){
   <details class="card"><summary>${LOCK.replace('<svg','<svg width="16" height="16" style="stroke:var(--gold-text);fill:none;stroke-width:1.8"')} How we protect your information</summary>
    <ul class="ul"><li>Your dashboard, goals, and progress are private to you.</li><li>Your information is encrypted in transit and at rest.</li><li>We never ask for Social Security numbers, bank or brokerage account numbers, or passwords.</li><li>We never sell or rent your information.</li></ul></details>
 
+  ${e.auth?`<p class="err" role="alert" id="signup-err">${esc(e.auth)}</p>`:''}
   <button class="btn" type="submit">Create My Account</button>
-  <p class="small muted" style="text-align:center">This preview saves nothing.</p>
+  <p class="small muted" style="text-align:center">${window.hkwAuth&&hkwAuth.on?'Your information is private and encrypted.':'This preview saves nothing.'}</p>
   <p class="fine copyright">© 2026 Birthing Billions™. All rights reserved.<br>Her Kingdom Wealth™ is a trademark used under license.</p>
  </form>`);
 }
@@ -2376,6 +2383,7 @@ document.addEventListener('submit',e=>{
   const v=S.f,er={};
   if(!v.fn.trim())er.fn='Enter your first name.';
   if(!/^\S+@\S+\.\S+$/.test(v.em.trim()))er.em='Enter a valid email address, like name@example.com.';
+  else if(emailTypo(v.em.trim()))er.em='Check your email address. Did you mean '+emailTypo(v.em.trim())+'?';
   if(intl()){const n=v.ph.replace(/\D/g,'').length;if(n<7||n>15)er.ph='Enter your mobile number with your country code.'}else if(v.ph.replace(/\D/g,'').length<10)er.ph='Enter your 10-digit mobile number.';
   if(v.pc.trim()&&!codeOk(v.pc))er.pc="That code isn't recognized. Check the spelling, or leave it blank.";
   if(!v.cdisc)er.disc='Please check the box to confirm you understand the content is educational.';
