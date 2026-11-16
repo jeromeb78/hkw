@@ -70,6 +70,7 @@ npm test
 
 - `tests/t3.js` loads the app in jsdom and clicks through core flows.
 - `tests/lcheck.js` opens all 40 lessons in Chromium and confirms each one renders its sections, 30 quiz options, and tip, with no script errors.
+- `tests/responsive.js` renders 34 screens at 320–1440px widths and on emulated iPhone, Pixel and iPad, and fails on sideways scrolling, overflow, or a missing viewport.
 - `tests/auth-flow.js` runs `server.js` and the real Supabase client against a mocked Supabase API. It covers sign-up, the beta gate, email code, two-step setup and sign-in, saving and reloading progress, password reset, and sign-out.
 
 ## Deploy
