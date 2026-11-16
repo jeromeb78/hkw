@@ -417,8 +417,10 @@
         '<p class="small muted" style="text-align:center">New here? <button class="link" type="button" data-go="signup">Start free</button></p></form>';
     } else if (s === 'verify') {
       h = '<form id="auth-verify" class="stack" novalidate>' +
-        head('Confirm your email', 'Check Your Email', 'We sent a confirmation code to <b>' + esc(st.email) + '</b>. Enter it below, or tap the link in the email.') + notes() +
-        '<div class="gcard stack-s">' + field('code', 'Confirmation code', 'text', EMAIL_CODE) +
+        head('Confirm', 'Confirm Your Email', st.email ? 'We sent a confirmation code to <b>' + esc(st.email) + '</b>. Enter it below, or tap the link in the email.'
+          : 'Enter your email and the confirmation code we sent you, or tap the link in the email.') + notes() +
+        '<div class="gcard stack-s">' + (st.email ? '' : field('email', 'Email', 'email', 'autocomplete="email"')) +
+        field('code', 'Confirmation code', 'text', EMAIL_CODE) +
         '<button class="btn" type="submit">Confirm</button>' +
         '<button class="link" type="button" data-auth="resend">Send a new code</button>' +
         '<p class="fine">Already have an account with this email? <button class="link" type="button" data-auth="signin">Sign in instead</button>.</p></div>' + HELP + '</form>';
@@ -508,6 +510,8 @@
         }).catch(function (x) { fail(x, 'signin'); });
     }
     if (id === 'verify') {
+      if (d.email !== undefined) st.email = (d.email || '').trim();
+      if (!/^\S+@\S+\.\S+$/.test(st.email)) return fail({ message: 'Enter the email you signed up with.' });
       var c = code6(d.code);
       if (c.length < 6 || c.length > 10) return fail({ message: 'Enter the code from the email (all of its digits).' });
       busy(form);
@@ -611,6 +615,8 @@
     else if (a === 'mfa-off') show('mfaoff');
     else if (a === 'lesson-retry') { delete lessonStatus[b.dataset.key]; app.render(); }
     else if (a === 'resend') {
+      if (!/^\S+@\S+\.\S+$/.test(st.email)) { var em = document.getElementById('email'); st.email = em ? em.value.trim() : ''; }
+      if (!/^\S+@\S+\.\S+$/.test(st.email)) { fail({ message: 'Enter the email you signed up with, then tap Send a new code.' }, 'verify'); return; }
       ready.then(function () { return sb.auth.resend({ type: 'signup', email: st.email, options: { emailRedirectTo: location.origin + '/' } }); })
         .then(function (r) { if (r.error) throw r.error; st.msg = 'We sent a new code to ' + st.email + '.'; show('verify'); })
         .catch(function (x) { fail(x, 'verify'); });
@@ -644,6 +650,7 @@
 
   // Opened at /login (or /signin): start on the sign-in screen. A remembered session still goes straight in.
   if (/^\/(login|signin)$/.test(app.startPath || '')) { st.step = 'signin'; S.view = 'auth'; }
+  if (app.startPath === '/confirm') { st.step = 'verify'; S.view = 'auth'; }
 
   // The app drew its first screen before this file loaded: redraw with sign-in active.
   app.render();

@@ -19,7 +19,9 @@ hPanel → Websites → Add website → **Node.js app** → connect GitHub repo 
 ## What the server does
 
 - Serves **only** these paths: `/`, `/index.html`, `/config.js`, `/auth.js`, `/vendor/supabase-2.118.0.js`, `/robots.txt`, `/assets/HKW-Share-Card.png`, `/api/health`, and `/api/lesson` (members only).
-- Keeps lesson text off the page. It removes the `HKW-CONTENT` blocks from `index.html`, and sends each lesson only to a signed-in member whose plan includes it (see `docs/SECURITY.md` → Lessons). `/api/health` shows `lessons: 40` when all lessons loaded. Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
+- Keeps lesson text off the page. It removes the `HKW-CONTENT` blocks from `index.html`, and sends each lesson only to a signed-in member whose plan includes it (see `docs/SECURITY.md` → Lessons). `/api/health` shows `lessons: 40` when all lessons loaded, and `build`: a fingerprint of the deployed code that changes with every deploy (use it to confirm Hostinger is serving the latest version).
+- Adds a fingerprint to the script addresses (`auth.js?v=…`, `config.js?v=…`), so browsers and Hostinger's cache always load the newest code after a deploy.
+- Page addresses: `/signup` (sign-up), `/login` or `/signin` (sign-in), and `/confirm` (email confirmation code). Everything else returns 404, including lesson sources, docs (they contain internal business details), emails, tests, and `package.json`.
 - Redirects `http` → `https` (using Hostinger's `X-Forwarded-Proto`), and `www.` → the apex domain when `CANONICAL_HOST` is set.
 - Sends security headers: Content-Security-Policy (only the Supabase project is allowed for `connect-src`), HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, and Permissions-Policy.
 - Gzips the 660 KB app to about 210 KB and uses ETags, with `no-cache` on the HTML and config so every release shows up right away.

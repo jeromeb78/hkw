@@ -150,6 +150,13 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await until(pg, () => location.pathname === '/login');
     assert(true, 'address bar shows /login on sign-in');
     await pg.context().close();
+    pg = await page(browser, db, errs);
+    await pg.goto(SITE + '/confirm');
+    await until(pg, () => /Confirm Your Email/.test(document.querySelector('h1').textContent) && !!document.querySelector('#email'));
+    assert(true, '/confirm opens the confirmation page and asks for the email when opened directly');
+    const html = await (await fetch('http://127.0.0.1:' + PORT + '/')).text();
+    assert(/auth\.js\?v=[0-9a-f]{10}/.test(html) && /config\.js\?v=[0-9a-f]{10}/.test(html), 'live page loads scripts with a version fingerprint (no stale cache after deploys)');
+    await pg.context().close();
 
     /* --- New member: gate, sign-up, email code, two-step enrollment, onboarding --- */
     pg = await page(browser, db, errs);
@@ -179,7 +186,8 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     assert(true, 'beta gate rejection shows a friendly message');
     await pg.fill('#em', 'grace@example.com'); await pg.fill('#pw', 'correct horse battery'); await pg.fill('#pw2', 'correct horse battery');
     await pg.click('#signup [type=submit]');
-    await until(pg, () => /Check Your Email/.test(document.querySelector('h1').textContent));
+    await until(pg, () => /Confirm Your Email/.test(document.querySelector('h1').textContent));
+    assert(new URL(pg.url()).pathname === '/confirm' && !/6-digit/.test(await pg.textContent('#root')), 'confirmation page is at /confirm and does not say 6-digit');
     assert(db.signupMeta.invite_code === 'MYSISTERSKEEPER' && db.signupMeta.first_name === 'Grace' && !('safe' in db.signupMeta), 'sign-up sends profile details and invite code, not the safety answer');
     await pg.fill('#code', '000000'); await pg.click('#auth-verify [type=submit]');
     await until(pg, () => /incorrect or has expired/.test(document.body.textContent));

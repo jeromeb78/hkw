@@ -31,6 +31,7 @@ const ROUTES = {
   '/signup': ['index.html', 'text/html; charset=utf-8', 'no-cache'],   // opens the sign-up form
   '/login': ['index.html', 'text/html; charset=utf-8', 'no-cache'],    // opens sign-in
   '/signin': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
+  '/confirm': ['index.html', 'text/html; charset=utf-8', 'no-cache'],  // email confirmation code
   '/config.js': ['config.js', 'application/javascript; charset=utf-8', 'no-cache'],
   '/auth.js': ['auth.js', 'application/javascript; charset=utf-8', 'no-cache'],
   '/vendor/supabase-2.118.0.js': ['vendor/supabase-2.118.0.js', 'application/javascript; charset=utf-8', 'public, max-age=31536000, immutable'],
@@ -73,12 +74,23 @@ function splitLessons(html) {
 // Load files once at startup (the whole public site is ~5 MB) and pre-compress text.
 const cache = {};
 const override = configOverride();
+
+// Cache-busting: the page asks for config.js and auth.js with a fingerprint of their contents
+// (e.g. auth.js?v=1a2b3c4d5e), so browsers and any CDN in front of Hostinger always load the newest
+// version after a deploy. /api/health reports the same build fingerprint.
+const sha = b => crypto.createHash('sha256').update(b).digest('hex').slice(0, 10);
+const readOr = f => { try { return fs.readFileSync(path.join(ROOT, f)); } catch { return Buffer.from(''); } };
+const FINGERPRINT = { 'config.js': sha(override ? override.body : readOr('config.js')), 'auth.js': sha(readOr('auth.js')) };
+const BUILD = sha(Buffer.concat([readOr('index.html'), readOr('auth.js'), readOr('server.js'), Buffer.from(FINGERPRINT['config.js'])]));
+function versionScripts(html) {
+  return html.replace(/<script src="(config\.js|auth\.js)"><\/script>/g, (m, f) => '<script src="' + f + '?v=' + FINGERPRINT[f] + '"></script>');
+}
 let publicIndex = null;
 for (const [route, [file, type, cacheControl]] of Object.entries(ROUTES)) {
   let body;
   try {
     if (route === '/config.js' && override) body = Buffer.from(override.body);
-    else if (file === 'index.html') body = publicIndex || (publicIndex = Buffer.from(splitLessons(fs.readFileSync(path.join(ROOT, file), 'utf8'))));
+    else if (file === 'index.html') body = publicIndex || (publicIndex = Buffer.from(versionScripts(splitLessons(fs.readFileSync(path.join(ROOT, file), 'utf8')))));
     else body = fs.readFileSync(path.join(ROOT, file));
   } catch (e) {
     console.error('Missing public file ' + file + ': ' + e.message);
@@ -196,6 +208,7 @@ const server = http.createServer((req, res) => {
         worker: null,
         config: override ? 'environment' : 'config.js',
         lessons: Object.keys(LESSONS).length,
+        build: BUILD,
         missing: [...new Set(Object.entries(ROUTES).filter(([k]) => !cache[k]).map(([, v]) => v[0]))],
       }), method);
     }

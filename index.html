@@ -2326,12 +2326,12 @@ function render(){
  if(window.hkwAuth&&hkwAuth.afterRender)hkwAuth.afterRender();
  syncPath();
 }
-/* Page addresses: /signup opens sign-up and /login opens sign-in; every other screen shows "/". */
-const PAGE_PATHS=['/','/signup','/login','/signin'];
+/* Page addresses: /signup, /login and /confirm (email confirmation) open those screens; every other screen shows "/". */
+const PAGE_PATHS=['/','/signup','/login','/signin','/confirm'];
 function syncPath(){
  if(!/^https?:$/.test(location.protocol)||!PAGE_PATHS.includes(location.pathname))return;
  const a=window.hkwAuth&&hkwAuth.on&&hkwAuth.st;
- const want=S.view==='signup'?'/signup':S.view==='auth'&&a&&['signin','forgot','reset'].includes(a.step)?'/login':'/';
+ const want=S.view==='signup'?'/signup':S.view==='auth'&&a&&a.step==='verify'?'/confirm':S.view==='auth'&&a&&['signin','forgot','reset'].includes(a.step)?'/login':'/';
  if(location.pathname!==want)try{history.replaceState(history.state,'',want+location.search+location.hash)}catch(e){}
 }
 
