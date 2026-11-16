@@ -22,6 +22,8 @@ const ROUTES = {
   '/': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
   '/index.html': ['index.html', 'text/html; charset=utf-8', 'no-cache'],
   '/config.js': ['config.js', 'application/javascript; charset=utf-8', 'no-cache'],
+  '/auth.js': ['auth.js', 'application/javascript; charset=utf-8', 'no-cache'],
+  '/vendor/supabase-2.118.0.js': ['vendor/supabase-2.118.0.js', 'application/javascript; charset=utf-8', 'public, max-age=31536000, immutable'],
   '/robots.txt': ['deploy/robots.txt', 'text/plain; charset=utf-8', 'public, max-age=3600'],
   '/assets/HKW-Share-Card.png': ['assets/HKW-Share-Card.png', 'image/png', 'public, max-age=2592000'],
 };
@@ -36,7 +38,8 @@ function configOverride() {
   }
   const hosts = (process.env.HKW_ALLOWED_HOSTS || 'herkingdomwealth.com,www.herkingdomwealth.com,beta.herkingdomwealth.com')
     .split(',').map(s => s.trim()).filter(Boolean);
-  const cfg = { supabaseUrl: url, supabaseKey: key, hosts, source: process.env.HKW_SOURCE || 'app' };
+  const cfg = { supabaseUrl: url, supabaseKey: key, hosts, source: process.env.HKW_SOURCE || 'app',
+    previewTools: process.env.HKW_PREVIEW_TOOLS === 'true' };
   return { cfg, body: '/* generated from environment by server.js */\nwindow.HKW_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n' };
 }
 
