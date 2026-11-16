@@ -3,7 +3,7 @@
  * Loaded after the app script. It does nothing unless the page runs on a host listed in
  * config.js → hosts, so the claude.ai preview, local file:// runs and the jsdom tests are unchanged.
  *
- * Flow: email + password → 6-digit email code (or the link) → two-step verification with an
+ * Flow: email + password → email code (6–10 digits, as Supabase sends it) or the link → two-step verification with an
  * authenticator app (required) → the member's data loads, and every change saves automatically.
  *
  * Never stored or sent: the safety question answer, the Safety Exit setting, the credit letter text,
@@ -391,7 +391,9 @@
   function field(id, label, type, extra) {
     return '<div class="stack-s"><label for="' + id + '">' + label + '</label><input id="' + id + '" name="' + id + '" type="' + type + '" ' + (extra || '') + '></div>';
   }
+  // Authenticator apps always show 6 digits; Supabase email codes are 6 to 10 digits depending on project settings.
   var CODE = 'inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456"';
+  var EMAIL_CODE = 'inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" maxlength="12" placeholder="Code from the email"';
   var KEEP = '<label class="check"><input name="keep" type="checkbox"' + '__K__' + '><span>Keep me signed in on this device. Leave this unchecked on a shared phone or computer.</span></label>';
   var HELP = '<p class="fine">Need help? Email Member Care at support@herkingdomwealth.com.</p>';
 
@@ -411,8 +413,8 @@
         '<p class="small muted" style="text-align:center">New here? <button class="link" type="button" data-go="signup">Start free</button></p></form>';
     } else if (s === 'verify') {
       h = '<form id="auth-verify" class="stack" novalidate>' +
-        head('Confirm your email', 'Check Your Email', 'We sent a 6-digit code to <b>' + esc(st.email) + '</b>. Enter it below, or tap the link in the email.') + notes() +
-        '<div class="gcard stack-s">' + field('code', 'Confirmation code', 'text', CODE) +
+        head('Confirm your email', 'Check Your Email', 'We sent a confirmation code to <b>' + esc(st.email) + '</b>. Enter it below, or tap the link in the email.') + notes() +
+        '<div class="gcard stack-s">' + field('code', 'Confirmation code', 'text', EMAIL_CODE) +
         '<button class="btn" type="submit">Confirm</button>' +
         '<button class="link" type="button" data-auth="resend">Send a new code</button>' +
         '<p class="fine">Already have an account with this email? <button class="link" type="button" data-auth="signin">Sign in instead</button>.</p></div>' + HELP + '</form>';
@@ -433,13 +435,13 @@
         '<button class="link" type="button" data-auth="signout">Sign out</button></div>' +
         '<p class="fine">Lost your phone? Email Member Care at support@herkingdomwealth.com from the address on your account, and we will help you set up two-step verification again.</p></form>';
     } else if (s === 'forgot') {
-      h = '<form id="auth-forgot" class="stack" novalidate>' + head('Reset your password', 'Forgot Your Password?', 'Enter your email and we will send you a 6-digit code to set a new password.') + notes() +
+      h = '<form id="auth-forgot" class="stack" novalidate>' + head('Reset your password', 'Forgot Your Password?', 'Enter your email and we will send you a code to set a new password.') + notes() +
         '<div class="gcard stack-s">' + field('email', 'Email', 'email', 'autocomplete="email" value="' + esc(st.email) + '"') +
         '<button class="btn" type="submit">Send Code</button>' +
         '<button class="link" type="button" data-auth="signin">Back to sign in</button></div></form>';
     } else if (s === 'reset') {
-      h = '<form id="auth-reset" class="stack" novalidate>' + head('Reset your password', 'Set a New Password', 'If <b>' + esc(st.email) + '</b> has an account, we sent it a 6-digit code. You can also tap the link in the email.') + notes() +
-        '<div class="gcard stack-s">' + field('code', 'Code from the email', 'text', CODE) +
+      h = '<form id="auth-reset" class="stack" novalidate>' + head('Reset your password', 'Set a New Password', 'If <b>' + esc(st.email) + '</b> has an account, we sent it a code. You can also tap the link in the email.') + notes() +
+        '<div class="gcard stack-s">' + field('code', 'Code from the email', 'text', EMAIL_CODE) +
         field('password', 'New password', 'password', 'autocomplete="new-password" minlength="10"') +
         field('password2', 'Confirm new password', 'password', 'autocomplete="new-password"') +
         '<button class="btn" type="submit">Save New Password</button>' +
@@ -498,7 +500,7 @@
     }
     if (id === 'verify') {
       var c = code6(d.code);
-      if (c.length !== 6) return fail({ message: 'Enter the 6-digit code from the email.' });
+      if (c.length < 6 || c.length > 10) return fail({ message: 'Enter the code from the email (all of its digits).' });
       busy(form);
       return ready.then(function () { return sb.auth.verifyOtp({ email: st.email, token: c, type: 'signup' }); })
         .then(function (r) { if (r.error) throw r.error; show('loading'); })
@@ -526,7 +528,7 @@
     }
     if (id === 'reset') {
       var rc = code6(d.code), pe = pwError(d.password, d.password2);
-      if (rc.length !== 6) return fail({ message: 'Enter the 6-digit code from the email.' });
+      if (rc.length < 6 || rc.length > 10) return fail({ message: 'Enter the code from the email (all of its digits).' });
       if (pe) return fail({ message: pe });
       busy(form);
       st.recovery = true; st.newPw = d.password;  // saved after two-step verification

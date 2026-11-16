@@ -24,7 +24,7 @@ const payload = {
   // URL configuration: email links return here
   site_url: SITE,
   uri_allow_list: [SITE + '/**', 'https://www.herkingdomwealth.com/**'].join(','),
-  // The app expects 6-digit email codes that last 1 hour, and passwords of 10+ characters
+  // Shorter 6-digit email codes (the app accepts 6 to 10) that last 1 hour, and passwords of 10+ characters
   mailer_otp_length: 6,
   mailer_otp_exp: 3600,
   password_min_length: 10,

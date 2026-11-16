@@ -70,7 +70,7 @@ npm ci && npm run build && npm start   # then open http://localhost:3000
 On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accounts:
 
 1. **Sign up:** the existing form, plus a password (10 or more characters) and "Keep me signed in on this device" (off by default, for shared phones).
-2. **Confirm email:** she enters the 6-digit code from the email, or taps the link.
+2. **Confirm email:** she enters the code from the email (6 to 10 digits, depending on the Supabase setting; new projects send 8), or taps the link.
 3. **Two-step verification (required):** she scans a QR code with an authenticator app and enters a code. Member data can't be read or written without it, and the database enforces this too.
 4. **Onboarding and progress save automatically:** profile, tier, season, risk band, lesson completions, Why card, quiz answers, action steps, Wealth Journey, Money Story, calculator inputs, and notification settings. They reload at every sign-in.
 5. **Welcome and onboarding:** new members see the Welcome page (a note from Rev. Dr. Banks, Matthew 25:21, and the three steps ahead), then Your Why, the placement quiz, and the investor profile. A member who stops partway resumes at the step she skipped the next time she signs in.
@@ -87,7 +87,7 @@ On the live site (any host in `config.js` → `hosts`), `auth.js` turns on accou
 
 The branded email templates are in `emails/auth/` (subjects in `subjects.json`). `scripts/apply-auth-config.js` applies them along with the sign-in settings the app needs:
 - Site URL `https://herkingdomwealth.com`, plus redirect URLs for the apex and `www`
-- 6-digit email codes that last 1 hour, a 10-character minimum password, and "Confirm email" on
+- 6-digit email codes that last 1 hour (the app accepts 6 to 10 digits, so the Supabase default of 8 also works), a 10-character minimum password, and "Confirm email" on
 - Authenticator-app two-step verification
 - Security alerts for password changes and for two-step methods added or removed
 - The templates: Confirm signup, Reset password, Invite user, and the three security alerts
