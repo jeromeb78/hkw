@@ -34,8 +34,8 @@ function mockSupabase(db) {
       db.signupMeta = body.data; return send(200, { ...user(), confirmation_sent_at: new Date().toISOString() });
     }
     if (p === '/auth/v1/recover') return send(200, {});
-    if (p === '/auth/v1/verify' && body.type === 'recovery') return body.token === '222222' ? send(200, session('aal1')) : send(403, { msg: 'Token has expired or is invalid' });
-    if (p === '/auth/v1/verify') return body.token === '123456' ? send(200, session('aal1')) : send(403, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
+    if (p === '/auth/v1/verify' && body.type === 'recovery') return body.token === '22222222' ? send(200, session('aal1')) : send(403, { msg: 'Token has expired or is invalid' });
+    if (p === '/auth/v1/verify') return body.token === '12345678' ? send(200, session('aal1')) : send(403, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
     if (p === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') {
       return body.password === 'correct horse battery' ? send(200, session('aal1')) : send(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
     }
@@ -162,7 +162,8 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.fill('#code', '000000'); await pg.click('#auth-verify [type=submit]');
     await until(pg, () => /incorrect or has expired/.test(document.body.textContent));
     assert(true, 'wrong email code is rejected');
-    await pg.fill('#code', '123456'); await pg.click('#auth-verify [type=submit]');
+    assert(true, '8-digit email codes are accepted (Supabase default on new projects)');
+    await pg.fill('#code', '1234 5678'); await pg.click('#auth-verify [type=submit]');
     await until(pg, () => /Protect Your Account/.test(document.querySelector('h1').textContent));
     assert(await pg.$('img[alt^="QR code"]'), 'two-step enrollment shows a QR code');
     await pg.fill('#code', '111111'); await pg.click('#auth-enroll [type=submit]');
@@ -252,7 +253,7 @@ const until = (pg, fn, arg) => pg.waitForFunction(fn, arg, { timeout: 8000 });
     await pg.click('[data-auth="signin"]'); await pg.click('[data-auth="forgot"]');
     await pg.fill('#email', 'grace@example.com'); await pg.click('#auth-forgot [type=submit]');
     await until(pg, () => /Set a New Password/.test(document.querySelector('h1').textContent));
-    await pg.fill('#code', '222222'); await pg.fill('#password', 'a brand new passphrase'); await pg.fill('#password2', 'a brand new passphrase');
+    await pg.fill('#code', '22222222'); await pg.fill('#password', 'a brand new passphrase'); await pg.fill('#password2', 'a brand new passphrase');
     await pg.click('#auth-reset [type=submit]');
     await until(pg, () => /Enter Your Code/.test(document.querySelector('h1').textContent));
     assert(!db.newPassword, 'new password waits until two-step verification');
