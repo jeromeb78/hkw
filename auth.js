@@ -300,7 +300,7 @@
     v.pw = v.pw2 = '';
     st.email = v.em.trim(); st.err = st.msg = '';
     setKeep(!!v.keep);
-    busy(document.querySelector('#signup'));
+    busy(document.querySelector('#signup'), 'Creating your account…', 'This can take up to 15 seconds while we send your confirmation email. Please keep this page open.');
     return ready.then(function () {
       if (!sb) throw new Error('unavailable');
       return sb.auth.signUp({
@@ -316,9 +316,9 @@
       st.pendingSignup = true;
       if (!r.data.session) show('verify');  // with a session, onAuthStateChange continues to two-step setup
     }).catch(function (e) {
-      S.errs = { pw: friendly(e) };
+      S.errs = { auth: friendly(e) };
       app.render();
-      var el = document.querySelector('.err'); if (el) el.scrollIntoView({ block: 'center' });
+      var el = document.querySelector('#signup-err') || document.querySelector('.err'); if (el) el.scrollIntoView({ block: 'center' });
     });
   };
 
@@ -372,9 +372,11 @@
     if (S.view !== 'auth') app.go('auth'); else { app.render(); window.scrollTo(0, 0); }
   }
 
-  function busy(form) {
+  function busy(form, label, note) {
     var b = form && form.querySelector('button[type=submit]');
-    if (b) { b.disabled = true; b.dataset.label = b.textContent; b.textContent = 'Please wait…'; }
+    if (!b) return;
+    b.disabled = true; b.dataset.label = b.textContent; b.textContent = label || 'Please wait…';
+    if (note) { var p = document.createElement('p'); p.className = 'small muted'; p.setAttribute('role', 'status'); p.style.textAlign = 'center'; p.textContent = note; b.insertAdjacentElement('afterend', p); }
   }
 
   function head(eyebrow, title, sub) {
@@ -600,6 +602,11 @@
   /* ---------- Friendly error messages ---------- */
   function friendly(e) {
     var m = String((e && (e.message || e.msg || e.error_description)) || e || '');
+    var status = e && (e.status || e.code);
+    // Supabase could not send the confirmation or reset email (email settings, or an address that cannot receive mail)
+    if (/HKW_NOT_INVITED|Database error saving new user/i.test(m)) return "This email isn't on the beta invitation list yet. Use the email you gave Rev. Dr. Banks's team, or email support@herkingdomwealth.com.";
+    if (status === 502 || status === 503 || status === 504 || (e && e.name === 'AuthRetryableFetchError' && !status) || /deadline|timeout|timed out|sending.*(email|mail)|confirmation (email|mail)|smtp/i.test(m))
+      return "We couldn't send your confirmation email just now. Check that your email address is spelled correctly, then try again in a minute. If it keeps happening, email support@herkingdomwealth.com.";
     if (/HKW_NOT_INVITED|Database error saving new user/i.test(m)) return "This email isn't on the beta invitation list yet. Use the email you gave Rev. Dr. Banks's team, or email support@herkingdomwealth.com.";
     if (/Invalid login credentials/i.test(m)) return "That email and password don't match. Try again, or reset your password.";
     if (/already registered|already been registered/i.test(m)) return 'An account with this email already exists. Sign in instead.';
