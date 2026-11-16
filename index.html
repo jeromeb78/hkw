@@ -1641,6 +1641,22 @@ function vGuide(){
   ${GUIDE.map(([ic,t,d,to])=>`<button class="card tap stack-s" ${to.jump?`data-jump="${to.jump}"`:`data-go="${to.go}"`}><h3>${t}</h3><p class="small">${d}</p></button>`).join('')}
  </div>`,{nav:true});
 }
+function vWelcome(){
+ const m=CHEERS.welcome[1],nm=S.name?esc(S.name.split(' ')[0]):'';
+ const STEPS=[['Your why','Choose what your money is for, so every lesson connects to it.'],['Placement quiz','A few quick questions place you as a Seed, Sower, Steward, or Kingdom Builder.'],['Your investor profile','Your season of life and comfort with risk, explained as general education.']];
+ return shell(`<div class="stack">
+  <div class="arch su-hero">${crown(96)}<p class="eyebrow" style="margin-top:10px">${nm?'Welcome, '+nm:'Welcome'}</p><h1 class="foil display su-title">Welcome Home</h1>
+   <div class="rule" style="margin-top:12px"><i></i><b></b><i></i></div><p class="tagline" style="margin-top:12px">Plant it. Grow it. Steward it. Multiply it.</p></div>
+  ${S.msk?`<div class="band stack-s" style="text-align:center"><p class="eyebrow">Your gift is active</p><p><b>My Sister's Keeper:</b> 12 months of complimentary Premium. Every tier, calculator, and library is unlocked.</p></div>`:''}
+  <section class="word stack-s" aria-label="A word from Rev. Dr. Banks"><div class="row" style="gap:10px;flex-wrap:nowrap;justify-content:flex-start">${crown(38)}<p class="eyebrow">A word from Rev. Dr. Banks</p></div><p class="word-text">${m}</p><p class="word-sig">${SIG}</p></section>
+  <div class="verse"><q>Well done, thou good and faithful servant: thou hast been faithful over a few things, I will make thee ruler over many things.</q><cite>MATTHEW 25:21 · KJV</cite></div>
+  <div class="gcard stack-s"><p class="eyebrow">Your first three steps · about 3 minutes</p>
+   ${STEPS.map(([t,d],i)=>`<div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0;${i<2?'border-bottom:1px solid var(--line-soft)':''}"><span class="foil" style="font-family:var(--f-display);font-weight:700;min-width:24px;font-size:1.05rem">${['I','II','III'][i]}</span><span style="display:flex;flex-direction:column;gap:2px;text-align:left"><b style="color:var(--bronze)">${t}</b><span class="small">${d}</span></span></div>`).join('')}</div>
+  <p class="small muted lock" style="justify-content:center">${LOCK}Your answers are private to you and never sold.</p>
+  <button class="btn" data-go="why">Begin: My Why</button>
+  <p class="disclaim">Her Kingdom Wealth™ provides educational content only, not financial, investment, tax, or legal advice.</p>
+ </div>`);
+}
 function vWhy(){
  const v=S.why.values;
  return shell(`<div class="stack">
@@ -2252,7 +2268,7 @@ function render(){
   case 'landing':h=vLanding();break; case 'signup':h=vSignup();break; case 'quiz':h=vQuiz();break;
   case 'tierresult':h=vTierResult();break; case 'archetype':h=vArchetype();break; case 'lesson':h=vLesson();break;
   case 'case':h=vCase();break; case 'plans':h=vPlans();break; case 'care':h=vCare();break; case 'admin':h=vAdmin();break;
-  case 'security':h=vSecurity();break; case 'why':h=vWhy();break; case 'guide':h=vGuide();break; case 'money':h=vMoney();break; case 'paths':h=vPaths();break; case 'story':h=vStory();break; case 'help':h=vHelp();break; case 'actions':h=vActions();break; case 'share':h=vShare();break; case 'bless':h=vBless();break; case 'search':h=vSearch();break; case 'involve':h=vInvolve();break; case 'credit':h=vCredit();break; case 'giving':h=vGiving();break; case 'exit':h=vExit();break;
+  case 'security':h=vSecurity();break; case 'why':h=vWhy();break; case 'welcome':h=vWelcome();break; case 'guide':h=vGuide();break; case 'money':h=vMoney();break; case 'paths':h=vPaths();break; case 'story':h=vStory();break; case 'help':h=vHelp();break; case 'actions':h=vActions();break; case 'share':h=vShare();break; case 'bless':h=vBless();break; case 'search':h=vSearch();break; case 'involve':h=vInvolve();break; case 'credit':h=vCredit();break; case 'giving':h=vGiving();break; case 'exit':h=vExit();break;
   default:h=shell({home:vHome,learn:vLearn,grow:vGrow,restore:vRestore,tools:vTools,library:vLibrary,me:vMe}[S.tab](),{nav:true});
  }
  const vk=S.view+'|'+S.tab+'|'+S.lesson+'|'+S.lib+'|'+S.careTab;const r=$('#root');r.classList.toggle('enter',vk!==render.k);render.k=vk;
@@ -2333,7 +2349,7 @@ document.addEventListener('submit',e=>{
   S.errs={};if(v.pc.trim()){S.plan='premium';S.msk=true}
   hkwSync.post('beta_signups',{first_name:v.fn.trim(),last_name:v.ln.trim()||null,email:v.em.trim(),phone:v.ph.trim()||null,country:v.country||null,invite_code:v.pc.trim()||null,plan:S.plan==='premium'?'premium':'complimentary',email_consent:!!v.cem,sms_consent:!!v.csms,disclaimer_ack:!!v.cdisc,source:hkwSync.source});
   if(window.hkwAuth&&hkwAuth.on){hkwAuth.signUp();return}
-  cheer('welcome');go('why');return}
+  go('welcome');return}
  if(f.id==='promo'){const v=$('#promo-in').value,m=$('#promo-msg');
   if(codeOk(v)){S.plan='premium';S.msk=true;if(window.hkwAuth&&hkwAuth.on)hkwAuth.redeem(v);render();toast("My Sister's Keeper: 12 months of complimentary Premium unlocked.")}
   else{m.textContent="That code isn't recognized or the invitation has closed. Check the spelling and try again.";m.className='err'}return}
